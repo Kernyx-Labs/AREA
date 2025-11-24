@@ -103,3 +103,5 @@ temp/
 *.swo
 *.bak
 ~*
+
+area-ui-mockup.tsx
