@@ -1,0 +1,50 @@
+<template>
+  <article class="stat-card" :aria-label="title">
+    <header class="stat-header">
+      <h3 class="stat-title">{{ title }}</h3>
+      <span v-if="icon" class="stat-icon" aria-hidden="true">{{ icon }}</span>
+    </header>
+    <p class="stat-value">{{ value }}</p>
+    <p v-if="trend" class="stat-trend" :class="trendClass">{{ trend.prefix }}{{ trend.value }}<span class="trend-suffix">{{ trend.suffix }}</span></p>
+    <footer v-if="description" class="stat-footer">{{ description }}</footer>
+  </article>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+const props = defineProps({
+  title: { type: String, required: true },
+  value: { type: [String, Number], required: true },
+  icon: { type: String, default: '' },
+  description: { type: String, default: '' },
+  trend: { type: Object, default: null } // { value, prefix, suffix, direction }
+})
+
+const trendClass = computed(() => props.trend?.direction === 'up' ? 'trend-up' : props.trend?.direction === 'down' ? 'trend-down' : '')
+</script>
+
+<style scoped>
+.stat-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.9rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow .18s, transform .18s;
+}
+.stat-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.stat-header { display: flex; align-items: center; justify-content: space-between; }
+.stat-title { font-size: 0.95rem; font-weight: 600; margin: 0; }
+.stat-icon { font-size: 1.2rem; }
+.stat-value { font-size: 1.7rem; font-weight: 600; margin: 0.1rem 0 0; line-height: 1.1; }
+.stat-trend { font-size: 0.85rem; font-weight: 500; margin: 0; }
+.trend-up { color: var(--color-success); }
+.trend-down { color: var(--color-danger); }
+.stat-footer { font-size: 0.7rem; opacity: 0.75; }
+</style>
