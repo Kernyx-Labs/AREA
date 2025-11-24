@@ -1,0 +1,105 @@
+# AREA repository .gitignore
+# Generated based on README (Spring Boot, Vue/Vite, Flutter, Docker, Jenkins, Sonar)
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Environment / secrets
+.env
+.env.*.local
+secrets.yml
+*.pem
+*.key
+
+# IDEs and editors
+.idea/
+.vscode/
+*.iml
+/.classpath
+/.project
+
+# Node (web)
+node_modules/
+/web/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Vite / build outputs
+/web/dist/
+/web/build/
+dist/
+build/
+/.turbo
+
+# Java / Maven (server)
+/server/target/
+target/
+*.class
+*.jar
+*.war
+*.ear
+/.mvn/wrapper/maven-wrapper.jar
+
+# Gradle (if present)
+/.gradle/
+**/build/
+
+# Spring Boot specific
+/server/*.log
+spring.log
+
+# Docker
+# Ignore local docker-compose override files and temporary artifacts
+docker-compose.override.yml
+*.env.local
+
+# Flutter / Dart (mobile)
+/mobile/.dart_tool/
+/mobile/.packages
+/mobile/.flutter-plugins
+/mobile/.flutter-plugins-dependencies
+/mobile/.metadata
+/mobile/build/
+/mobile/ios/Pods/
+/mobile/.gradle/
+ios/Pods/
+android/.gradle/
+
+# Flutter generated keystore and app signing
+*.jks
+*.keystore
+
+# Flutter plugin configs and pub cache
+/.pub-cache/
+
+# IDEs specific to Android / IntelliJ
+/.idea/
+*.iml
+
+# Coverage and test
+.coverage
+.nyc_output/
+coverage/
+.pytest_cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build output for other tools
+/build/
+/dist/
+
+# Misc
+*.swp
+*.swo
+*.bak
+~*
