@@ -94,8 +94,7 @@ pipeline {
 				script {
 					if (env.CHANGE_ID) {
 						def date = sh(returnStdout: true, script: 'date -u').trim()
-						def targetBranch = resolveTargetBranch()
-						pullRequest.comment("Split pipeline build ${env.BUILD_ID} ran at ${date}. Service folders were synced to their dedicated repositories on branch '${targetBranch}' when changes were detected.")
+						pullRequest.comment("Split pipeline build ${env.BUILD_ID} ran at ${date}. Server, Web, and Mobile outputs were synced to their dedicated repositories if changes were detected.")
 					} else {
 						echo 'No pull request detected; skipping comment.'
 					}
@@ -112,14 +111,7 @@ pipeline {
 }
 
 def resolveTargetBranch() {
-def resolveTargetBranch() {
-	if (env.CHANGE_BRANCH?.trim()) {
-		return env.CHANGE_BRANCH.trim()
-	}
-	if (env.BRANCH_NAME?.trim()) {
-		return env.BRANCH_NAME.trim()
-	}
-	return 'main'
+	return env.BRANCH_NAME?.trim() ? env.BRANCH_NAME : 'main'
 }
 
 def syncService(Map args) {
