@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/palette.dart';
+import '../constants/pipeline_layout.dart';
 import '../constants/shadows.dart';
 import '../models/models.dart';
 import '../widgets/canvas/connection_painter.dart';
@@ -16,6 +17,8 @@ class PipelineEditorScreen extends StatefulWidget {
 }
 
 class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
+  final TextEditingController _nameController = TextEditingController(text: 'New Automation');
+
   final List<PipelineNode> _nodes = [
     PipelineNode(
       id: 1,
@@ -23,7 +26,7 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
       service: services['github']!,
       title: 'New Issue',
       description: 'Triggers on new issues',
-      position: const Offset(40, 160),
+      position: PipelineLayout.initialNodePosition,
     ),
     PipelineNode(
       id: 2,
@@ -31,7 +34,8 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
       service: services['discord']!,
       title: 'Send Message',
       description: 'Posts to #alerts',
-      position: const Offset(260, 160),
+      position: PipelineLayout.initialNodePosition +
+          Offset(0, PipelineLayout.nodeHeight + PipelineLayout.nodeSpacing),
     ),
   ];
 
@@ -39,6 +43,21 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
   int? _selectedNodeId;
   int? _connectingFrom;
   String _areaName = 'New Automation';
+  int? _activeCanvasPointerId;
+  Offset _canvasOffset = Offset.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.text = _areaName;
+    _nameController.addListener(() => _areaName = _nameController.text);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
 
   void _onNodePan(int id, Offset delta) {
     setState(() {
@@ -47,6 +66,12 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
       final node = _nodes[idx];
       _nodes[idx] = node.copyWith(position: node.position + delta);
     });
+  }
+
+  Offset _nextNodePosition() {
+    final double y = PipelineLayout.initialNodePosition.dy +
+        _nodes.length * (PipelineLayout.nodeHeight + PipelineLayout.nodeSpacing);
+    return Offset(PipelineLayout.initialNodePosition.dx, y);
   }
 
   void _onDelete(int id) {
@@ -59,22 +84,21 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
     });
   }
 
-  Future<void> _addNode(NodeType type) async {
-    final template = await showModalBottomSheet<NodeTemplate>(
+  Future<void> _showNodePicker() async {
+    final selection = await showModalBottomSheet<NodeTemplateChoice>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (context) => NodePicker(type: type),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+      builder: (context) => NodePicker(initialType: NodeType.action),
     );
 
-    if (template == null) return;
+    if (selection == null) return;
 
     setState(() {
+      final template = selection.template;
+      final type = selection.type;
       final newId = DateTime.now().millisecondsSinceEpoch;
-      final baseX = type == NodeType.action ? 40.0 : 260.0;
       _nodes.add(
         PipelineNode(
           id: newId,
@@ -82,7 +106,7 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
           service: services[template.serviceId]!,
           title: template.name,
           description: template.description,
-          position: Offset(baseX, 280 + _nodes.length * 40),
+          position: _nextNodePosition(),
         ),
       );
     });
@@ -109,20 +133,48 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
     }
   }
 
+  bool _isPointerOverNode(Offset localPosition) {
+    final Offset worldPosition = localPosition - _canvasOffset;
+    return _nodes.any(
+      (node) => Rect.fromLTWH(
+        node.position.dx,
+        node.position.dy,
+        PipelineLayout.nodeWidth,
+        PipelineLayout.nodeHeight,
+      ).contains(worldPosition),
+    );
+  }
+
+  void _onCanvasPointerDown(PointerDownEvent event) {
+    if (_activeCanvasPointerId != null) return;
+    if (_isPointerOverNode(event.localPosition)) return;
+    _activeCanvasPointerId = event.pointer;
+  }
+
+  void _onCanvasPointerMove(PointerMoveEvent event) {
+    if (_activeCanvasPointerId != event.pointer) return;
+    setState(() => _canvasOffset += event.delta);
+  }
+
+  void _onCanvasPointerEnd(PointerEvent event) {
+    if (_activeCanvasPointerId == event.pointer) {
+      _activeCanvasPointerId = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(color: AppPalette.dark, boxShadow: AppShadows.appBar),
           child: Row(
             children: [
               Expanded(
                 child: TextField(
-                  controller: TextEditingController(text: _areaName),
-                  onChanged: (value) => _areaName = value,
+                  controller: _nameController,
                   style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
                   decoration: const InputDecoration.collapsed(
                     hintText: 'Name your AREA',
@@ -130,67 +182,82 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
                   ),
                 ),
               ),
-              FilledButton.icon(
-                onPressed: () => _addNode(NodeType.action),
-                style: FilledButton.styleFrom(backgroundColor: AppPalette.nodeAction, foregroundColor: Colors.white),
-                icon: const Icon(Icons.add),
-                label: const Text('Action'),
-              ),
               const SizedBox(width: 12),
-              FilledButton.icon(
-                onPressed: () => _addNode(NodeType.reaction),
-                style: FilledButton.styleFrom(backgroundColor: AppPalette.nodeReaction, foregroundColor: Colors.white),
+              IconButton.filledTonal(
+                onPressed: _showNodePicker,
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.15),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(44, 44),
+                ),
                 icon: const Icon(Icons.add),
-                label: const Text('Reaction'),
+                tooltip: 'Add node',
               ),
             ],
           ),
         ),
         Expanded(
-          child: Container(
-            color: AppPalette.canvas,
-            child: Stack(
-              children: [
-                Positioned.fill(child: CustomPaint(painter: GridPainter())),
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: ConnectionPainter(nodes: _nodes, connections: _connections),
-                  ),
-                ),
-                ..._nodes.map(
-                  (node) => PipelineNodeWidget(
-                    key: ValueKey(node.id),
-                    node: node,
-                    isSelected: node.id == _selectedNodeId,
-                    isConnectingFrom: node.id == _connectingFrom,
-                    onTap: () => setState(() => _selectedNodeId = node.id),
-                    onPanUpdate: (delta) => _onNodePan(node.id, delta),
-                    onDelete: () => _onDelete(node.id),
-                    onConnectorTap: () {
-                      if (node.type == NodeType.action) {
-                        _startConnection(node.id);
-                      } else {
-                        _finishConnection(node.id);
-                      }
-                    },
-                  ),
-                ),
-                Positioned(
-                  left: 16,
-                  bottom: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      'Drag nodes to reorder • Tap connectors to link',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+          child: Listener(
+            behavior: HitTestBehavior.opaque,
+            onPointerDown: _onCanvasPointerDown,
+            onPointerMove: _onCanvasPointerMove,
+            onPointerUp: _onCanvasPointerEnd,
+            onPointerCancel: _onCanvasPointerEnd,
+            child: Container(
+              color: AppPalette.canvas,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: GridPainter(offset: _canvasOffset),
                     ),
                   ),
-                ),
-              ],
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: ConnectionPainter(
+                        nodes: _nodes,
+                        connections: _connections,
+                        canvasOffset: _canvasOffset,
+                      ),
+                    ),
+                  ),
+                  ..._nodes.map(
+                    (node) => PipelineNodeWidget(
+                      key: ValueKey(node.id),
+                      node: node,
+                      canvasOffset: _canvasOffset,
+                      isSelected: node.id == _selectedNodeId,
+                      isConnectingFrom: node.id == _connectingFrom,
+                      onTap: () => setState(() => _selectedNodeId = node.id),
+                      onPanUpdate: (delta) => _onNodePan(node.id, delta),
+                      onDelete: () => _onDelete(node.id),
+                      onConnectorTap: () {
+                        if (node.type == NodeType.action) {
+                          _startConnection(node.id);
+                        } else {
+                          _finishConnection(node.id);
+                        }
+                      },
+                    ),
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        'Drag background to pan • Drag nodes • Tap connectors to link',
+                        style: TextStyle(color: Colors.white70, fontSize: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -198,4 +265,3 @@ class _PipelineEditorScreenState extends State<PipelineEditorScreen> {
     );
   }
 }
-

@@ -3,14 +3,21 @@ import 'package:flutter/material.dart';
 import '../constants/palette.dart';
 import '../models/models.dart';
 
-class NodePicker extends StatelessWidget {
-  const NodePicker({super.key, required this.type});
+class NodePicker extends StatefulWidget {
+  const NodePicker({super.key, required this.initialType});
 
-  final NodeType type;
+  final NodeType initialType;
+
+  @override
+  State<NodePicker> createState() => _NodePickerState();
+}
+
+class _NodePickerState extends State<NodePicker> {
+  late NodeType _selectedType = widget.initialType;
 
   @override
   Widget build(BuildContext context) {
-    final items = type == NodeType.action ? actionTemplates : reactionTemplates;
+    final items = _selectedType == NodeType.action ? actionTemplates : reactionTemplates;
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -23,8 +30,20 @@ class NodePicker extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           Text(
-            'Add ${type == NodeType.action ? 'Action' : 'Reaction'}',
+            'Add ${_selectedType == NodeType.action ? 'Action' : 'Reaction'}',
             style: Theme.of(context).textTheme.titleLarge!.copyWith(color: AppPalette.dark),
+          ),
+          const SizedBox(height: 16),
+          ToggleButtons(
+            isSelected: NodeType.values.map((type) => type == _selectedType).toList(growable: false),
+            borderRadius: BorderRadius.circular(12),
+            selectedColor: Colors.white,
+            fillColor: _selectedType == NodeType.action ? AppPalette.nodeAction : AppPalette.nodeReaction,
+            onPressed: (index) => setState(() => _selectedType = NodeType.values[index]),
+            children: const [
+              Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Actions')),
+              Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Reactions')),
+            ],
           ),
           const SizedBox(height: 16),
           Flexible(
@@ -41,7 +60,7 @@ class NodePicker extends StatelessWidget {
                   leading: CircleAvatar(backgroundColor: service.color, child: Icon(service.icon, color: Colors.white)),
                   title: Text(item.name),
                   subtitle: Text(item.description),
-                  onTap: () => Navigator.of(context).pop(item),
+                  onTap: () => Navigator.of(context).pop(NodeTemplateChoice(type: _selectedType, template: item)),
                 );
               },
             ),
@@ -51,4 +70,3 @@ class NodePicker extends StatelessWidget {
     );
   }
 }
-
