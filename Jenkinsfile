@@ -88,43 +88,53 @@ def syncService(Map args) {
 	String serviceDir = args.serviceDir
 	String repoUrl = args.repoUrl
 	String branch = args.targetBranch
+	String normalizedDir = serviceDir.startsWith('./') ? serviceDir.substring(2) : serviceDir
+	String commitMessage = "Sync ${label} from monorepo build #${env.BUILD_NUMBER ?: 'local'}"
 
-	if (!fileExists(serviceDir)) {
-		error "Directory '${serviceDir}' not found for service '${label}'."
+	if (!fileExists(normalizedDir)) {
+		error "Directory '${normalizedDir}' not found for service '${label}'."
 	}
 
 	dir("split/${label}") {
 		deleteDir()
 
-		sh """#!/bin/bash
-		set -euo pipefail
-		rsync -a --delete \\
-			--exclude '.git/' \\
-			--exclude '.dart_tool/' \\
-			--exclude 'node_modules/' \\
-			--exclude 'build/' \\
-			--exclude '.gradle/' \\
-			--exclude '.idea/' \\
-			"${serviceDir}/" ./
-		"""
+		withEnv([
+			"SERVICE_LABEL=${label}",
+			"SERVICE_DIR=${normalizedDir}",
+			"SERVICE_REPO=${repoUrl}",
+			"SERVICE_BRANCH=${branch}",
+			"SERVICE_COMMIT=${commitMessage}"
+		]) {
+			sh '''#!/bin/bash
+			set -euo pipefail
+			rsync -a --delete \
+				--exclude '.git/' \
+				--exclude '.dart_tool/' \
+				--exclude 'node_modules/' \
+				--exclude 'build/' \
+				--exclude '.gradle/' \
+				--exclude '.idea/' \
+				"$WORKSPACE/$SERVICE_DIR/" ./
+			'''
 
-		sh """#!/bin/bash
-		set -euo pipefail
-		git init
-		git config user.name "${env.GIT_AUTHOR_NAME}"
-		git config user.email "${env.GIT_AUTHOR_EMAIL}"
-		if git remote | grep -q '^origin$'; then
-			git remote remove origin
-		fi
-		git remote add origin "${repoUrl}"
-		git checkout -B "${branch}"
-		git add -A
-		if git diff --cached --quiet; then
-			echo "No changes detected for ${label}; skipping push."
-			exit 0
-		fi
-		git commit -m "Sync ${label} from monorepo build #${env.BUILD_NUMBER ?: 'local'}"
-		git push --force origin "${branch}"
-		"""
+			sh '''#!/bin/bash
+			set -euo pipefail
+			git init
+			git config user.name "$GIT_AUTHOR_NAME"
+			git config user.email "$GIT_AUTHOR_EMAIL"
+			if git remote | grep -q '^origin$'; then
+				git remote remove origin
+			fi
+			git remote add origin "$SERVICE_REPO"
+			git checkout -B "$SERVICE_BRANCH"
+			git add -A
+			if git diff --cached --quiet; then
+				echo "No changes detected for $SERVICE_LABEL; skipping push."
+				exit 0
+			fi
+			git commit -m "$SERVICE_COMMIT"
+			git push --force origin "$SERVICE_BRANCH"
+			'''
+		}
 	}
 }
