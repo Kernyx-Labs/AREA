@@ -1,0 +1,41 @@
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: area-server
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    networks:
+      - area-net
+
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    container_name: area-web
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+    environment:
+      # VITE_API_URL: "http://server:8080"
+      VITE_API_URL: "http://localhost:8080"
+    networks:
+      - area-net
+
+  mobile-apk-builder:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile.apk-builder
+    container_name: area-mobile-apk-builder
+    networks:
+      - area-net
+    volumes:
+      - ./mobile/apk-output:/app/build/app/outputs/flutter-apk
+
+networks:
+  area-net:
+    driver: bridge
