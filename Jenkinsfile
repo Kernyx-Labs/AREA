@@ -9,10 +9,10 @@ pipeline {
 	environment {
 		GIT_AUTHOR_NAME = 'AREA Automation'
 		GIT_AUTHOR_EMAIL = 'ci@aincrad-flux.dev'
-		SERVER_REPO_URL = 'git@github.com:Aincrad-Flux/AREA-Server.git'
-		WEB_REPO_URL = 'git@github.com:Aincrad-Flux/AREA-Web.git'
-		MOBILE_REPO_URL = 'git@github.com:Aincrad-Flux/AREA-Mobile.git'
-		SSH_CREDENTIALS_ID = 'github-https-tokens'
+		SERVER_REPO_URL = 'https://github.com/Aincrad-Flux/AREA-Server.git'
+		WEB_REPO_URL = 'https://github.com/Aincrad-Flux/AREA-Web.git'
+		MOBILE_REPO_URL = 'https://github.com/Aincrad-Flux/AREA-Mobile.git'
+		PUSH_CREDENTIALS_ID = 'github-https-tokens'
 	}
 
 	stages {
@@ -26,7 +26,13 @@ pipeline {
 		stage('Server ➜ AREA-Server') {
 			when { expression { fileExists('server') } }
 			steps {
-				sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+				withCredentials([
+					usernamePassword(
+						credentialsId: env.PUSH_CREDENTIALS_ID,
+						usernameVariable: 'GIT_PUSH_USERNAME',
+						passwordVariable: 'GIT_PUSH_TOKEN'
+					)
+				]) {
 					script {
 						syncService(
 							serviceLabel: 'server',
@@ -42,7 +48,13 @@ pipeline {
 		stage('Web ➜ AREA-Web') {
 			when { expression { fileExists('web') } }
 			steps {
-				sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+				withCredentials([
+					usernamePassword(
+						credentialsId: env.PUSH_CREDENTIALS_ID,
+						usernameVariable: 'GIT_PUSH_USERNAME',
+						passwordVariable: 'GIT_PUSH_TOKEN'
+					)
+				]) {
 					script {
 						syncService(
 							serviceLabel: 'web',
@@ -58,7 +70,13 @@ pipeline {
 		stage('Mobile ➜ AREA-Mobile') {
 			when { expression { fileExists('mobile') } }
 			steps {
-				sshagent(credentials: [env.SSH_CREDENTIALS_ID]) {
+				withCredentials([
+					usernamePassword(
+						credentialsId: env.PUSH_CREDENTIALS_ID,
+						usernameVariable: 'GIT_PUSH_USERNAME',
+						passwordVariable: 'GIT_PUSH_TOKEN'
+					)
+				]) {
 					script {
 						syncService(
 							serviceLabel: 'mobile',
@@ -103,7 +121,9 @@ def syncService(Map args) {
 			"SERVICE_DIR=${normalizedDir}",
 			"SERVICE_REPO=${repoUrl}",
 			"SERVICE_BRANCH=${branch}",
-			"SERVICE_COMMIT=${commitMessage}"
+			"SERVICE_COMMIT=${commitMessage}",
+			"PUSH_USERNAME=${env.GIT_PUSH_USERNAME ?: ''}",
+			"PUSH_TOKEN=${env.GIT_PUSH_TOKEN ?: ''}"
 		]) {
 			sh '''#!/bin/bash
 			set -euo pipefail
@@ -125,7 +145,11 @@ def syncService(Map args) {
 			if git remote | grep -q '^origin$'; then
 				git remote remove origin
 			fi
-			git remote add origin "$SERVICE_REPO"
+			auth_repo="$SERVICE_REPO"
+			if [ -n "$PUSH_USERNAME" ] && [ -n "$PUSH_TOKEN" ]; then
+				auth_repo="${SERVICE_REPO/https:\/\//https://$PUSH_USERNAME:$PUSH_TOKEN@}"
+			fi
+			git remote add origin "$auth_repo"
 			git checkout -B "$SERVICE_BRANCH"
 			git add -A
 			if git diff --cached --quiet; then
