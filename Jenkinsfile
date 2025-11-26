@@ -12,7 +12,7 @@ pipeline {
 		SERVER_REPO_URL = 'https://github.com/Aincrad-Flux/AREA-Server.git'
 		WEB_REPO_URL = 'https://github.com/Aincrad-Flux/AREA-Web.git'
 		MOBILE_REPO_URL = 'https://github.com/Aincrad-Flux/AREA-Mobile.git'
-		PUSH_CREDENTIALS_ID = 'github-https-tokens'
+		PUSH_CREDENTIALS_ID = 'Aincrad-Github'
 	}
 
 	stages {
