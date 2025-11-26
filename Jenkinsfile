@@ -108,6 +108,7 @@ def syncService(Map args) {
 	String branch = args.targetBranch
 	String normalizedDir = serviceDir.startsWith('./') ? serviceDir.substring(2) : serviceDir
 	String commitMessage = "Sync ${label} from monorepo build #${env.BUILD_NUMBER ?: 'local'}"
+	String repoHostPath = repoUrl.replaceFirst('https://', '')
 
 	if (!fileExists(normalizedDir)) {
 		error "Directory '${normalizedDir}' not found for service '${label}'."
@@ -121,7 +122,8 @@ def syncService(Map args) {
 			"SERVICE_DIR=${normalizedDir}",
 			"SERVICE_REPO=${repoUrl}",
 			"SERVICE_BRANCH=${branch}",
-			"SERVICE_COMMIT=${commitMessage}"
+			"SERVICE_COMMIT=${commitMessage}",
+			"SERVICE_REPO_HOSTPATH=${repoHostPath}"
 		]) {
 			sh '''#!/bin/bash
 			set -euo pipefail
@@ -145,7 +147,7 @@ def syncService(Map args) {
 			fi
 			auth_repo="$SERVICE_REPO"
 			if [ -n "$GIT_PUSH_USERNAME" ] && [ -n "$GIT_PUSH_TOKEN" ]; then
-				auth_repo="${SERVICE_REPO/https:\/\//https://$GIT_PUSH_USERNAME:$GIT_PUSH_TOKEN@}"
+				auth_repo="https://$GIT_PUSH_USERNAME:$GIT_PUSH_TOKEN@$SERVICE_REPO_HOSTPATH"
 			fi
 			git remote add origin "$auth_repo"
 			git checkout -B "$SERVICE_BRANCH"
