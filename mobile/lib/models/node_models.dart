@@ -72,4 +72,3 @@ const reactionTemplates = [
   NodeTemplate(serviceId: 'outlook', name: 'Create Event', description: 'Creates a calendar event'),
   NodeTemplate(serviceId: 'github', name: 'Create Issue', description: 'Creates a new issue'),
 ];
-
