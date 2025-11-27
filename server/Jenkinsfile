@@ -1,11 +1,26 @@
 node {
-  stage('SCM') {
-    checkout scm
-  }
-  stage('SonarQube Analysis') {
-    def mvn = tool 'Default Maven';
-    withSonarQubeEnv() {
-      sh "${mvn}/bin/mvn clean verify sonar:sonar -Dsonar.projectKey=Aincrad-Flux_AREA-Server_88ef6e64-4872-467b-b70b-469bbb243de0 -Dsonar.projectName='AREA-Server'"
+    stage('SCM') {
+        checkout scm
     }
-  }
+
+    stage('SonarQube Analysis') {
+        def mvn = tool 'Default Maven';
+        withSonarQubeEnv() {
+            sh "${mvn}/bin/mvn clean verify sonar:sonar -Dsonar.projectKey=Aincrad-Flux_AREA-Server_88ef6e64-4872-467b-b70b-469bbb243de0 -Dsonar.projectName='AREA-Server'"
+        }
+    }
+
+    stage('Comment') {
+		steps {
+			script {
+				if (env.CHANGE_ID) {
+					def date = sh(returnStdout: true, script: 'date -u').trim()
+					pullRequest.comment("SonarQube Analysis completed at ${date}.")
+				} else {
+					echo 'No pull request detected; skipping comment.'
+				}
+			}
+		}
+	}
+
 }
