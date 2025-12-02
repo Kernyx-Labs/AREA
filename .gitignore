@@ -15,6 +15,7 @@ logs/
 secrets.yml
 *.pem
 *.key
+/server/.env
 
 # IDEs and editors
 .idea/
@@ -105,3 +106,5 @@ temp/
 ~*
 
 area-ui-mockup.tsx
+
+/server/db-data/

@@ -59,7 +59,8 @@ logs/
 *.tar.gz
 *.rar
 
+# Local Postgres data directory (Docker volume), do not commit data
+/db-data/
 # Application properties with sensitive data (optional, uncomment if needed)
 # application-*.properties
 # application-*.yml
-

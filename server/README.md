@@ -4,6 +4,8 @@ This module contains the Spring Boot backend for AREA.
 
 The backend always runs from the IDE (IntelliJ) and connects to a PostgreSQL database running in Docker. The database is started manually with Docker Compose; the backend never starts or embeds a database.
 
+> Only backend code (endpoints, services, rules, configuration) is committed. **Database data itself (under `db-data/`) is local-only and ignored by Git.**
+
 ---
 
 ## 1. Environment file
