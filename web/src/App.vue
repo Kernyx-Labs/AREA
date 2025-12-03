@@ -1,11 +1,27 @@
-<script setup></script>
+<script setup>
+import { useRoute, useRouter } from 'vue-router'
+import { computed } from 'vue'
+import Sidebar from './components/Sidebar.vue'
+
+const route = useRoute()
+const router = useRouter()
+const currentPage = computed(() => route.name || 'dashboard')
+function goTo(page, params){
+  if (route.name === page && JSON.stringify(route.params) === JSON.stringify(params || {})) return
+  router.push(params ? { name: page, params } : { name: page })
+}
+function openEditor(areaId){
+  goTo('editor', areaId ? { areaId } : undefined)
+}
+</script>
 
 <template>
-  <h1>You did it!</h1>
-  <p>
-    Visit <a href="https://vuejs.org/" target="_blank" rel="noopener">vuejs.org</a> to read the
-    documentation
-  </p>
+  <Sidebar :currentPage="currentPage" @navigate="goTo" />
+  <div class="page-shift" :class="currentPage">
+    <router-view @openEditor="openEditor" />
+  </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.page-shift { margin-left:64px; min-height:100vh; }
+</style>

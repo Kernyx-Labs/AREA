@@ -1,0 +1,93 @@
+:root {
+  /* Palette (Light Default) */
+  --color-pale-cashmere: #E8DFD5;
+  --color-noble-black: #202124; /* dark base */
+  --color-burning-orange: #FF7124;
+  --color-cinnamon-ice: #DBBBA7;
+  --color-blue-estate: #3B4883;
+  --color-wahoo: #272D4E;
+
+  /* Semantic mapping (light) */
+  --color-bg: var(--color-pale-cashmere);
+  --color-surface: #FFFFFF;
+  --color-surface-alt: var(--color-cinnamon-ice);
+  --color-border: rgba(39,45,78,0.18);
+  --color-hover: rgba(39,45,78,0.10);
+  --color-text: var(--color-noble-black);
+  --color-muted: var(--color-cinnamon-ice);
+  --color-primary: var(--color-blue-estate);
+  --color-primary-alt: var(--color-wahoo);
+  --color-accent: var(--color-burning-orange);
+  --color-accent-soft: #FF712426; /* translucent accent */
+  --color-accent-contrast: #fff;
+  --color-success: #4CAF50;
+  --color-danger: #ff5f56;
+  --color-canvas: var(--color-bg); /* editor canvas matches dashboard in light mode */
+  --color-canvas-grid: rgba(39,45,78,0.20); /* lighter grid for pale background */
+  --color-canvas-grid-strong: rgba(39,45,78,0.35);
+  --shadow-sm: 0 2px 4px -2px rgba(0,0,0,.15);
+  --shadow-md: 0 10px 24px -12px rgba(0,0,0,.25);
+  --color-primary-soft: rgba(59,72,131,0.18); /* soft tint of Blue Estate for highlights */
+  --color-primary-contrast: var(--color-primary); /* text color on soft primary background */
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, sans-serif;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  /* Dark mode overrides */
+  --color-bg: var(--color-noble-black);
+  --color-surface: var(--color-wahoo);
+  --color-surface-alt: var(--color-blue-estate);
+  --color-border: var(--color-blue-estate);
+  --color-hover: rgba(219,187,167,0.12);
+  --color-text: var(--color-pale-cashmere);
+  --color-muted: var(--color-cinnamon-ice);
+  --color-primary: var(--color-burning-orange); /* elevate orange in dark */
+  --color-primary-alt: var(--color-blue-estate);
+  --color-accent: var(--color-burning-orange);
+  --color-accent-soft: #FF712433;
+  --color-accent-contrast: var(--color-noble-black);
+  --color-canvas: var(--color-noble-black);
+  --color-canvas-grid: var(--color-wahoo);
+  --color-canvas-grid-strong: var(--color-wahoo);
+  --color-primary-soft: rgba(255,113,36,0.22); /* soft tint of Burning Orange in dark */
+  --color-primary-contrast: var(--color-accent); /* text over soft primary highlight */
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body, html, #app { margin: 0; padding: 0; min-height: 100%; }
+body { background: var(--color-bg); color: var(--color-text); transition: background .3s, color .3s; }
+
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--color-bg); }
+::-webkit-scrollbar-thumb { background: var(--color-surface-alt); border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-surface); }
+
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 3px; }
+
+.container { max-width: 1280px; margin: 0 auto; width: 100%; }
+.fade-in { animation: fade .4s ease; }
+@keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Utility classes */
+.bg-surface { background: var(--color-surface); }
+.bg-surface-alt { background: var(--color-surface-alt); }
+.text-muted { color: var(--color-muted); }
+.btn-accent { background: var(--color-accent); color: var(--color-accent-contrast); }
+.btn-accent-soft { background: var(--color-accent-soft); color: var(--color-accent); }
+.border-default { border: 1px solid var(--color-border); }
+
+/* Transition for themeable elements */
+.theme-transition, .sidebar, .node-shell, .area-card, .service-card { transition: background-color .3s, color .3s, border-color .3s; }
+
+/* Area meta global coloring */
+.area-meta .meta-nodes { color: var(--color-primary-alt); }
+.area-meta .meta-status { color: var(--color-primary); font-weight:500; }
+.area-meta .meta-status.inactive { color: var(--color-danger); }
+.area-meta .meta-placeholder { color: var(--color-muted); font-style: italic; opacity:.9; }
+
+[data-theme='dark'] .area-meta .meta-nodes { color: var(--color-primary); }
+[data-theme='dark'] .area-meta .meta-status { color: var(--color-success); }
+[data-theme='dark'] .area-meta .meta-status.inactive { color: var(--color-danger); }
+[data-theme='dark'] .area-meta .meta-placeholder { color: var(--color-muted); opacity:.75; }
