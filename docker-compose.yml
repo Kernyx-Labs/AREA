@@ -6,7 +6,7 @@ services:
     ports:
       - "8088:5432"
     env_file:
-      - ./server/.env
+      - server/.env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -33,7 +33,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - ./server/.env
+      - server/.env
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
