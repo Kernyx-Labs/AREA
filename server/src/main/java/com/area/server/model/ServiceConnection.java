@@ -27,6 +27,12 @@ public class ServiceConnection {
 
     private Long expiresInSeconds;
 
+    @Column(name = "token_expires_at")
+    private java.time.Instant tokenExpiresAt;
+
+    @Column(name = "last_refresh_attempt")
+    private java.time.Instant lastRefreshAttempt;
+
     @Column(length = 4096)
     private String metadata;
 
@@ -75,5 +81,28 @@ public class ServiceConnection {
 
     public void setMetadata(String metadata) {
         this.metadata = metadata;
+    }
+
+    public java.time.Instant getTokenExpiresAt() {
+        return tokenExpiresAt;
+    }
+
+    public void setTokenExpiresAt(java.time.Instant tokenExpiresAt) {
+        this.tokenExpiresAt = tokenExpiresAt;
+    }
+
+    public java.time.Instant getLastRefreshAttempt() {
+        return lastRefreshAttempt;
+    }
+
+    public void setLastRefreshAttempt(java.time.Instant lastRefreshAttempt) {
+        this.lastRefreshAttempt = lastRefreshAttempt;
+    }
+
+    public boolean needsRefresh() {
+        if (tokenExpiresAt == null) {
+            return false;
+        }
+        return java.time.Instant.now().plusSeconds(300).isAfter(tokenExpiresAt);
     }
 }

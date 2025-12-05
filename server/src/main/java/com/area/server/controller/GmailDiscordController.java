@@ -10,6 +10,8 @@ import com.area.server.service.DiscordService;
 import com.area.server.service.GmailService;
 import com.area.server.service.ServiceConnectionService;
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -19,6 +21,8 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/integrations")
 public class GmailDiscordController {
+
+    private static final Logger logger = LoggerFactory.getLogger(GmailDiscordController.class);
 
     private final GmailService gmailService;
     private final DiscordService discordService;
@@ -74,20 +78,47 @@ public class GmailDiscordController {
 
     @PostMapping("/actions/gmail/validate")
     public ResponseEntity<Map<String, Object>> validateGmail(@Valid @RequestBody GmailValidationRequest request) {
-        ServiceConnection connection = connectionService.findById(request.getConnectionId());
-        if (connection.getType() != ServiceConnection.ServiceType.GMAIL) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Connection is not of type GMAIL"));
+        try {
+            ServiceConnection connection = connectionService.findById(request.getConnectionId());
+            if (connection.getType() != ServiceConnection.ServiceType.GMAIL) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Connection is not of type GMAIL"));
+            }
+
+            // Validate that the connection has proper OAuth tokens
+            if (connection.getAccessToken() == null || connection.getAccessToken().isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Invalid Gmail connection",
+                    "message", "Access token is missing. Please reconnect your Gmail account."
+                ));
+            }
+
+            // Check if token looks like a client ID (they start with numbers and end with .apps.googleusercontent.com)
+            if (connection.getAccessToken().contains("apps.googleusercontent.com")) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Invalid Gmail connection",
+                    "message", "Connection has OAuth client credentials instead of access tokens. Please delete this connection and create a new one through the OAuth flow at /api/services/gmail/auth-url"
+                ));
+            }
+
+            GmailActionConfig config = new GmailActionConfig();
+            config.setLabel(request.getLabel());
+            config.setSubjectContains(request.getSubjectContains());
+            config.setFromAddress(request.getFromAddress());
+
+            int count = gmailService.fetchUnreadCount(connection, config).blockOptional().orElse(0);
+            return ResponseEntity.ok(Map.of(
+                    "connectionId", request.getConnectionId(),
+                    "unreadCount", count,
+                    "query", gmailService.buildQuery(config)
+            ));
+        } catch (Exception e) {
+            logger.error("Failed to validate Gmail connection", e);
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Failed to validate Gmail connection",
+                "message", e.getMessage(),
+                "details", "Check server logs for more information"
+            ));
         }
-        GmailActionConfig config = new GmailActionConfig();
-        config.setLabel(request.getLabel());
-        config.setSubjectContains(request.getSubjectContains());
-        config.setFromAddress(request.getFromAddress());
-        int count = gmailService.fetchUnreadCount(connection, config).blockOptional().orElse(0);
-        return ResponseEntity.ok(Map.of(
-                "connectionId", request.getConnectionId(),
-                "unreadCount", count,
-                "query", gmailService.buildQuery(config)
-        ));
     }
 
     @PostMapping("/reactions/discord/validate")

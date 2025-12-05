@@ -32,4 +32,10 @@ public class ServiceConnectionController {
     public Iterable<ServiceConnection> list() {
         return serviceConnectionService.list();
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
+        serviceConnectionService.delete(id);
+        return ResponseEntity.noContent().build();
+    }
 }

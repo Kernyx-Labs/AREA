@@ -1,0 +1,364 @@
+{
+	"info": {
+		"_postman_id": "area-backend-api-collection",
+		"name": "AREA Backend API",
+		"description": "Complete API collection for testing Gmail to Discord webhook integration and AREA management",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "gmail_connection_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "discord_connection_id",
+			"value": "2",
+			"type": "string"
+		},
+		{
+			"key": "area_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Service Discovery",
+			"item": [
+				{
+					"name": "Get All Services",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/integrations/services",
+							"host": ["{{base_url}}"],
+							"path": ["api", "integrations", "services"]
+						},
+						"description": "Retrieve list of all available services (Gmail, Discord) with their actions and reactions"
+					},
+					"response": []
+				},
+				{
+					"name": "Get About Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/about.json",
+							"host": ["{{base_url}}"],
+							"path": ["about.json"]
+						},
+						"description": "Get service metadata including client IP and available services"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for discovering available services and their capabilities"
+		},
+		{
+			"name": "Service Connections",
+			"item": [
+				{
+					"name": "Create Gmail Connection",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"GMAIL\",\n  \"accessToken\": \"ya29.a0AfH6SMBx...\",\n  \"refreshToken\": \"1//0gSZo6i4...\",\n  \"expiresInSeconds\": 3599,\n  \"metadata\": \"{\\\"email\\\":\\\"user@gmail.com\\\"}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/service-connections",
+							"host": ["{{base_url}}"],
+							"path": ["api", "service-connections"]
+						},
+						"description": "Create a Gmail service connection with OAuth tokens. Replace with your actual tokens from Google OAuth."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Discord Connection",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"DISCORD\",\n  \"accessToken\": \"\",\n  \"refreshToken\": \"\",\n  \"expiresInSeconds\": null,\n  \"metadata\": \"{\\\"webhookUrl\\\":\\\"https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN\\\"}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/service-connections",
+							"host": ["{{base_url}}"],
+							"path": ["api", "service-connections"]
+						},
+						"description": "Create a Discord service connection. Replace with your actual Discord webhook URL."
+					},
+					"response": []
+				},
+				{
+					"name": "List All Connections",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/service-connections",
+							"host": ["{{base_url}}"],
+							"path": ["api", "service-connections"]
+						},
+						"description": "Get all service connections for the current user"
+					},
+					"response": []
+				}
+			],
+			"description": "Manage service connections (OAuth tokens and webhook URLs)"
+		},
+		{
+			"name": "Validation & Testing",
+			"item": [
+				{
+					"name": "Validate Gmail Action",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"connectionId\": {{gmail_connection_id}},\n  \"label\": \"INBOX\",\n  \"subjectContains\": \"\",\n  \"fromAddress\": \"\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/integrations/actions/gmail/validate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "integrations", "actions", "gmail", "validate"]
+						},
+						"description": "Test Gmail connection and filters. Returns unread count matching the filters."
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Gmail Action (with filters)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"connectionId\": {{gmail_connection_id}},\n  \"label\": \"Work\",\n  \"subjectContains\": \"urgent\",\n  \"fromAddress\": \"boss@company.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/integrations/actions/gmail/validate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "integrations", "actions", "gmail", "validate"]
+						},
+						"description": "Test Gmail with specific filters (label, subject, sender)"
+					},
+					"response": []
+				},
+				{
+					"name": "Validate Discord Reaction",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"webhookUrl\": \"https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN\",\n  \"message\": \"Test message from AREA platform\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/integrations/reactions/discord/validate",
+							"host": ["{{base_url}}"],
+							"path": ["api", "integrations", "reactions", "discord", "validate"]
+						},
+						"description": "Test Discord webhook by sending a test message. Check your Discord channel to verify."
+					},
+					"response": []
+				},
+				{
+					"name": "Test Discord Bot",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Hello from AREA Discord Bot test!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/discord/test",
+							"host": ["{{base_url}}"],
+							"path": ["api", "discord", "test"]
+						},
+						"description": "Test Discord bot by sending a message to the configured channel. Uses bot token from DISCORD_CLIENT_SECRET and channel ID from DISCORD_CHANNEL_ID in .env file."
+					},
+					"response": []
+				}
+			],
+			"description": "Test and validate service connections before creating AREAs"
+		},
+		{
+			"name": "AREA Management",
+			"item": [
+				{
+					"name": "Create AREA (Basic)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"actionConnectionId\": {{gmail_connection_id}},\n  \"reactionConnectionId\": {{discord_connection_id}},\n  \"gmailLabel\": \"INBOX\",\n  \"gmailSubjectContains\": null,\n  \"gmailFromAddress\": null,\n  \"discordWebhookUrl\": \"https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN\",\n  \"discordChannelName\": \"notifications\",\n  \"discordMessageTemplate\": \"You have {{unreadCount}} unread Gmail messages!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/areas",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas"]
+						},
+						"description": "Create a basic AREA that monitors all inbox emails and sends Discord notifications"
+					},
+					"response": []
+				},
+				{
+					"name": "Create AREA (With Filters)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"actionConnectionId\": {{gmail_connection_id}},\n  \"reactionConnectionId\": {{discord_connection_id}},\n  \"gmailLabel\": \"Work\",\n  \"gmailSubjectContains\": \"urgent\",\n  \"gmailFromAddress\": \"boss@company.com\",\n  \"discordWebhookUrl\": \"https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN\",\n  \"discordChannelName\": \"work-alerts\",\n  \"discordMessageTemplate\": \"URGENT: You have {{unreadCount}} urgent work emails from your boss!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/areas",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas"]
+						},
+						"description": "Create an AREA with specific filters (label, subject, sender)"
+					},
+					"response": []
+				},
+				{
+					"name": "List All AREAs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas"]
+						},
+						"description": "Get all AREAs for the current user"
+					},
+					"response": []
+				},
+				{
+					"name": "Get AREA by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}"]
+						},
+						"description": "Get a specific AREA by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete AREA",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}"]
+						},
+						"description": "Delete a specific AREA. This will stop all automatic triggers."
+					},
+					"response": []
+				}
+			],
+			"description": "Create, read, update, and delete AREAs (automation rules)"
+		},
+		{
+			"name": "Manual Triggers",
+			"item": [
+				{
+					"name": "Trigger AREA Manually",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/integrations/areas/{{area_id}}/trigger",
+							"host": ["{{base_url}}"],
+							"path": ["api", "integrations", "areas", "{{area_id}}", "trigger"]
+						},
+						"description": "Manually execute an AREA for testing purposes. This will check Gmail and send a Discord message if there are unread emails."
+					},
+					"response": []
+				}
+			],
+			"description": "Manually trigger AREAs for testing (the automated scheduler will run these automatically every 60 seconds)"
+		},
+		{
+			"name": "Health & Monitoring",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/actuator/health",
+							"host": ["{{base_url}}"],
+							"path": ["actuator", "health"]
+						},
+						"description": "Check if the backend service is healthy"
+					},
+					"response": []
+				}
+			],
+			"description": "Health checks and monitoring endpoints"
+		}
+	]
+}

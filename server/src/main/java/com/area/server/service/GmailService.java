@@ -2,16 +2,21 @@ package com.area.server.service;
 
 import com.area.server.model.GmailActionConfig;
 import com.area.server.model.ServiceConnection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
 
 @Service
 public class GmailService {
+
+    private static final Logger logger = LoggerFactory.getLogger(GmailService.class);
 
     private final WebClient gmailClient;
 
@@ -22,6 +27,8 @@ public class GmailService {
 
     public Mono<Integer> fetchUnreadCount(ServiceConnection connection, GmailActionConfig config) {
         String query = buildQuery(config);
+        logger.debug("Fetching unread count with query: {}", query);
+
         return gmailClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/gmail/v1/users/me/messages")
@@ -38,6 +45,13 @@ public class GmailService {
                         return number.intValue();
                     }
                     return 0;
+                })
+                .doOnError(WebClientResponseException.class, e -> {
+                    logger.error("Gmail API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+                })
+                .onErrorResume(e -> {
+                    logger.error("Failed to fetch Gmail unread count", e);
+                    return Mono.just(0);
                 });
     }
 
