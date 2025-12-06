@@ -1,10 +1,82 @@
 .services-wrap { padding:2rem; min-height:100vh; background: var(--color-bg); }
 .services-wrap h1 { margin:0 0 1.5rem; font-size:2rem; color: var(--color-text); }
-.services-grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); }
+.services-grid { display:grid; gap:1rem; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); }
 .service-card { background: var(--color-surface); border:1px solid var(--color-border); border-radius:16px; padding:1rem; display:flex; align-items:center; gap:1rem; box-shadow: var(--shadow-sm); transition: background .3s, box-shadow .3s; }
 .service-card:hover { box-shadow: var(--shadow-md); }
-.svc-icon { width:48px; height:48px; border-radius:14px; }
-.svc-info { display:flex; flex-direction:column; }
+.svc-icon { width:48px; height:48px; border-radius:14px; flex-shrink: 0; }
+.svc-info { display:flex; flex-direction:column; flex:1; }
 .svc-name { font-size:.9rem; font-weight:600; color: var(--color-text); }
-.svc-status { font-size:.7rem; color: var(--color-success); }
+.svc-status { font-size:.7rem; margin-top: 0.25rem; }
+.svc-status.connected { color: var(--color-success); }
+.svc-status.disconnected { color: var(--color-text-secondary, #999); }
+.svc-status.expired { color: #f59e0b; font-weight: 600; }
+.svc-expiry {
+  font-size: 0.65rem;
+  margin-top: 0.25rem;
+  color: var(--color-text-secondary, #999);
+}
+.svc-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.loading { text-align: center; padding: 2rem; color: var(--color-text-secondary, #999); }
+.error-message { padding: 1rem; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; }
+
+.btn-connect, .btn-disconnect, .btn-delete, .btn-refresh {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-connect {
+  background: var(--color-accent, #6366f1);
+  color: white;
+}
+
+.btn-connect:hover:not(:disabled) {
+  background: var(--color-accent-hover, #4f46e5);
+  transform: translateY(-1px);
+}
+
+.btn-disconnect {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-disconnect:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-delete {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-delete:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-refresh {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.btn-refresh:hover:not(:disabled) {
+  background: rgba(245, 158, 11, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-connect:disabled, .btn-disconnect:disabled, .btn-delete:disabled, .btn-refresh:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 
