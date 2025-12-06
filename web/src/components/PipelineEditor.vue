@@ -4,189 +4,342 @@
       <input
         v-model="areaName"
         class="title-input"
+        placeholder="Enter automation name..."
         :style="{ borderColor: titleFocused ? 'rgba(255,255,255,0.5)' : 'transparent' }"
         @focus="titleFocused = true"
         @blur="titleFocused = false"
       />
       <div class="header-actions">
-        <button class="mini-btn action" @click="toggleActionMenu" aria-haspopup="true" :aria-expanded="showActionMenu ? 'true' : 'false'"><PlusIcon size="16" /> Action</button>
-        <!-- Dropdown list for actions -->
-        <div v-if="showActionMenu" class="action-dropdown" role="menu">
-          <ul class="action-list">
-            <li v-for="(item,i) in actionsList" :key="i" role="none">
-              <button class="action-item" role="menuitem" @click="selectAction(item)">
-                <span class="ai-left">
-                  <span class="svc-icon" :style="{ background: services[item.service].color }">
-                    <component :is="services[item.service]?.icon || defaultServiceIcon" size="14" color="white" />
-                  </span>
-                  <span class="ai-service">{{ services[item.service].name }}</span>
-                </span>
-                <span class="ai-name">{{ item.name }}</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-        <button class="mini-btn reaction" @click="toggleReactionMenu" aria-haspopup="true" :aria-expanded="showReactionMenu ? 'true' : 'false'"><PlusIcon size="16" /> Reaction</button>
-        <div v-if="showReactionMenu" class="reaction-dropdown" role="menu">
-          <ul class="action-list">
-            <li v-for="(item,i) in reactionsList" :key="i" role="none">
-              <button class="action-item" role="menuitem" @click="selectReaction(item)">
-                <span class="ai-left">
-                  <span class="svc-icon" :style="{ background: services[item.service].color }">
-                    <component :is="services[item.service]?.icon || defaultServiceIcon" size="14" color="white" />
-                  </span>
-                  <span class="ai-service">{{ services[item.service].name }}</span>
-                </span>
-                <span class="ai-name">{{ item.name }}</span>
-              </button>
-            </li>
-          </ul>
-        </div>
-        <button class="save-btn"><PlayIcon size="16" /> Save & Activate</button>
+        <button class="save-btn" @click="saveWorkflow">
+          <PlayIcon size="16" /> Save & Activate
+        </button>
       </div>
     </header>
-    <div class="header-grid-strip">
-      <svg class="header-grid-svg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
-        <defs>
-          <pattern id="header-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-            <rect width="20" height="20" fill="var(--color-canvas)" />
-            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="var(--color-canvas-grid)" stroke-width="0.5" />
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#header-grid)" />
-      </svg>
+
+    <!-- Split View: Actions on Left, Reactions on Right -->
+    <div class="split-container">
+      <!-- Left Side: Actions/Triggers -->
+      <div class="side-panel left-panel">
+        <div class="panel-header">
+          <h3>When this happens...</h3>
+          <button class="add-btn" @click="showActionPicker = true">
+            <PlusIcon size="16" /> Add Trigger
+          </button>
+        </div>
+
+        <div v-if="!selectedAction" class="empty-state">
+          <ClockIcon size="48" :stroke-width="1.5" />
+          <p>Click "Add Trigger" to start</p>
+        </div>
+
+        <div v-else class="config-card">
+          <div class="config-header" :style="{ background: services[selectedAction.service].color }">
+            <div class="config-header-left">
+              <component :is="services[selectedAction.service]?.icon" size="20" color="white" />
+              <span>{{ services[selectedAction.service].name }}</span>
+            </div>
+            <button class="remove-btn" @click="removeAction">
+              <XIcon size="16" color="white" />
+            </button>
+          </div>
+
+          <div class="config-body">
+            <h4>{{ selectedAction.name }}</h4>
+            <p class="config-desc">{{ selectedAction.desc }}</p>
+
+            <!-- Gmail Configuration -->
+            <div v-if="selectedAction.service === 'gmail'" class="config-options">
+              <div class="form-group">
+                <label>Check for new emails</label>
+                <select v-model="actionConfig.interval">
+                  <option value="60">Every minute</option>
+                  <option value="300">Every 5 minutes</option>
+                  <option value="600">Every 10 minutes</option>
+                  <option value="1800">Every 30 minutes</option>
+                  <option value="3600">Every hour</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Filter by sender (optional)</label>
+                <input v-model="actionConfig.senderFilter" type="text" placeholder="example@gmail.com" />
+              </div>
+
+              <div class="form-group">
+                <label>Filter by subject (optional)</label>
+                <input v-model="actionConfig.subjectFilter" type="text" placeholder="Keywords..." />
+              </div>
+
+              <div class="available-vars">
+                <strong>Available variables:</strong>
+                <div class="var-tags">
+                  <span class="var-tag" v-text="'{{sender}}'"></span>
+                  <span class="var-tag" v-text="'{{subject}}'"></span>
+                  <span class="var-tag" v-text="'{{body}}'"></span>
+                  <span class="var-tag" v-text="'{{unreadCount}}'"></span>
+                  <span class="var-tag" v-text="'{{receivedAt}}'"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Timer Configuration -->
+            <div v-if="selectedAction.service === 'timer'" class="config-options">
+              <div class="form-group">
+                <label>Trigger every</label>
+                <div class="time-input-group">
+                  <input v-model.number="actionConfig.intervalValue" type="number" min="1" />
+                  <select v-model="actionConfig.intervalUnit">
+                    <option value="seconds">Seconds</option>
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="days">Days</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="available-vars">
+                <strong>Available variables:</strong>
+                <div class="var-tags">
+                  <span class="var-tag" v-text="'{{timestamp}}'"></span>
+                  <span class="var-tag" v-text="'{{date}}'"></span>
+                  <span class="var-tag" v-text="'{{time}}'"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- GitHub Configuration -->
+            <div v-if="selectedAction.service === 'github'" class="config-options">
+              <div class="form-group">
+                <label>Repository</label>
+                <input v-model="actionConfig.repository" type="text" placeholder="owner/repo" />
+              </div>
+
+              <div class="form-group">
+                <label>Event type</label>
+                <select v-model="actionConfig.eventType">
+                  <option value="issues">New Issue</option>
+                  <option value="pull_request">Pull Request</option>
+                  <option value="push">Push</option>
+                  <option value="release">Release</option>
+                </select>
+              </div>
+
+              <div class="available-vars">
+                <strong>Available variables:</strong>
+                <div class="var-tags">
+                  <span class="var-tag" v-text="'{{author}}'"></span>
+                  <span class="var-tag" v-text="'{{title}}'"></span>
+                  <span class="var-tag" v-text="'{{url}}'"></span>
+                  <span class="var-tag" v-text="'{{repository}}'"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Arrow Connector -->
+      <div class="connector-arrow">
+        <div class="arrow-line"></div>
+        <div class="arrow-head">→</div>
+      </div>
+
+      <!-- Right Side: Reactions -->
+      <div class="side-panel right-panel">
+        <div class="panel-header">
+          <h3>Do this...</h3>
+          <button class="add-btn" @click="showReactionPicker = true" :disabled="!selectedAction">
+            <PlusIcon size="16" /> Add Action
+          </button>
+        </div>
+
+        <div v-if="!selectedReaction" class="empty-state">
+          <MessageSquareIcon size="48" :stroke-width="1.5" />
+          <p>{{ selectedAction ? 'Click "Add Action" to continue' : 'Add a trigger first' }}</p>
+        </div>
+
+        <div v-else class="config-card">
+          <div class="config-header" :style="{ background: services[selectedReaction.service].color }">
+            <div class="config-header-left">
+              <component :is="services[selectedReaction.service]?.icon" size="20" color="white" />
+              <span>{{ services[selectedReaction.service].name }}</span>
+            </div>
+            <button class="remove-btn" @click="removeReaction">
+              <XIcon size="16" color="white" />
+            </button>
+          </div>
+
+          <div class="config-body">
+            <h4>{{ selectedReaction.name }}</h4>
+            <p class="config-desc">{{ selectedReaction.desc }}</p>
+
+            <!-- Discord Configuration -->
+            <div v-if="selectedReaction.service === 'discord'" class="config-options">
+              <div class="form-group">
+                <label>Webhook URL *</label>
+                <input
+                  v-model="reactionConfig.webhookUrl"
+                  type="url"
+                  placeholder="https://discord.com/api/webhooks/123.../abc..."
+                  required
+                />
+                <small>Get this from Discord: Server Settings → Integrations → Webhooks</small>
+              </div>
+
+              <div class="form-group">
+                <label>Channel Name (optional)</label>
+                <input v-model="reactionConfig.channelName" type="text" placeholder="general" />
+              </div>
+
+              <div class="form-group">
+                <label>Message template</label>
+                <textarea
+                  v-model="reactionConfig.message"
+                  rows="4"
+                  placeholder="Enter your message... Use variables like {{sender}} or {{unreadCount}}"
+                ></textarea>
+                <small v-if="selectedAction">
+                  You can use variables from {{ services[selectedAction.service].name }}
+                </small>
+              </div>
+
+              <div v-if="selectedAction" class="insert-var-section">
+                <label>Insert variable:</label>
+                <div class="var-buttons">
+                  <button
+                    v-for="varName in getAvailableVariables()"
+                    :key="varName"
+                    class="var-insert-btn"
+                    @click="insertVariable(varName)"
+                    v-text="`{{${varName}}}`"
+                  >
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Gmail Send Configuration -->
+            <div v-if="selectedReaction.service === 'gmail'" class="config-options">
+              <div class="form-group">
+                <label>To</label>
+                <input v-model="reactionConfig.to" type="email" placeholder="recipient@example.com" />
+              </div>
+
+              <div class="form-group">
+                <label>Subject</label>
+                <input v-model="reactionConfig.subject" type="text" placeholder="Email subject..." />
+              </div>
+
+              <div class="form-group">
+                <label>Body</label>
+                <textarea
+                  v-model="reactionConfig.body"
+                  rows="6"
+                  placeholder="Email body... Use variables from your trigger"
+                ></textarea>
+              </div>
+
+              <div v-if="selectedAction" class="insert-var-section">
+                <label>Insert variable:</label>
+                <div class="var-buttons">
+                  <button
+                    v-for="varName in getAvailableVariables()"
+                    :key="varName"
+                    class="var-insert-btn"
+                    @click="insertVariable(varName, 'body')"
+                    v-text="`{{${varName}}}`"
+                  >
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dropbox Configuration -->
+            <div v-if="selectedReaction.service === 'dropbox'" class="config-options">
+              <div class="form-group">
+                <label>Folder path</label>
+                <input v-model="reactionConfig.folderPath" type="text" placeholder="/Documents/Backups" />
+              </div>
+
+              <div class="form-group">
+                <label>File name</label>
+                <input v-model="reactionConfig.fileName" type="text" placeholder="backup-{{date}}.txt" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div
-      ref="canvasRef"
-      class="canvas"
-      @click="handleCanvasClick"
-      @dblclick="handleCanvasDouble"
-    >
-      <GridBackground />
-      <div class="selected-actions">
-        <div
-          v-for="n in orderedActionNodes"
-          :key="n.id"
-          class="action-card"
-          :style="cardStyle(n.id)"
-          @mousedown.stop="startCardDrag(n.id, $event)"
-          @click.stop="selectNode(n.id)"
-          :class="{ selected: selectedNode===n.id }"
-        >
-          <div class="action-card__header" :style="{ background: services[n.service].color }">
-            <div class="action-card__header-content">
-              <div class="action-card__icon" :style="{ background: 'rgba(255,255,255,0.2)' }">
-                <component :is="services[n.service]?.icon || defaultServiceIcon" size="14" color="#fff" />
-              </div>
-              <span class="action-card__service">{{ services[n.service].name }}</span>
+
+    <!-- Action Picker Modal -->
+    <div v-if="showActionPicker" class="modal-overlay" @click="showActionPicker = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Choose a Trigger</h3>
+          <button class="close-modal-btn" @click="showActionPicker = false">
+            <XIcon size="20" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div
+            v-for="action in actionsList"
+            :key="action.service + action.name"
+            class="picker-item"
+            @click="selectActionTrigger(action)"
+          >
+            <div class="picker-icon" :style="{ background: services[action.service].color }">
+              <component :is="services[action.service]?.icon" size="24" color="white" />
             </div>
-            <button
-              v-if="pendingDeleteId!==n.id"
-              class="no-drag action-card__close"
-              @click.stop="requestDelete(n.id)"
-            ><XIcon size="12" color="white" /></button>
-            <div v-else class="delete-confirm">
-              <button class="confirm" @click.stop="confirmDelete">Confirm</button>
-              <button class="cancel" @click.stop="cancelDelete">Cancel</button>
+            <div class="picker-info">
+              <div class="picker-title">{{ action.name }}</div>
+              <div class="picker-service">{{ services[action.service].name }}</div>
+              <div class="picker-desc">{{ action.desc }}</div>
             </div>
-          </div>
-          <div class="action-card__body">
-            <div class="action-card__title">{{ n.actionName }}</div>
-            <div class="action-card__desc">{{ n.desc }}</div>
           </div>
         </div>
       </div>
-      <div class="selected-reactions">
-        <div
-          v-for="n in orderedReactionNodes"
-          :key="n.id"
-          class="reaction-card"
-          :style="reactionCardStyle(n.id)"
-          @mousedown.stop="startReactionCardDrag(n.id, $event)"
-          @click.stop="selectNode(n.id)"
-        >
-          <div class="reaction-card__header" :style="{ background: services[n.service].color }">
-            <div class="reaction-card__header-content">
-              <div class="reaction-card__icon">
-                <component :is="services[n.service]?.icon || defaultServiceIcon" size="14" color="#fff" />
-              </div>
-              <span class="reaction-card__service">{{ services[n.service].name }}</span>
+    </div>
+
+    <!-- Reaction Picker Modal -->
+    <div v-if="showReactionPicker" class="modal-overlay" @click="showReactionPicker = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>Choose an Action</h3>
+          <button class="close-modal-btn" @click="showReactionPicker = false">
+            <XIcon size="20" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div
+            v-for="reaction in reactionsList"
+            :key="reaction.service + reaction.name"
+            class="picker-item"
+            @click="selectReactionAction(reaction)"
+          >
+            <div class="picker-icon" :style="{ background: services[reaction.service].color }">
+              <component :is="services[reaction.service]?.icon" size="24" color="white" />
             </div>
-            <button
-              v-if="pendingDeleteId!==n.id"
-              class="no-drag reaction-card__close"
-              @click.stop="requestDelete(n.id)"
-            ><XIcon size="12" color="white" /></button>
-            <div v-else class="delete-confirm">
-              <button class="confirm" @click.stop="confirmDelete">Confirm</button>
-              <button class="cancel" @click.stop="cancelDelete">Cancel</button>
+            <div class="picker-info">
+              <div class="picker-title">{{ reaction.name }}</div>
+              <div class="picker-service">{{ services[reaction.service].name }}</div>
+              <div class="picker-desc">{{ reaction.desc }}</div>
             </div>
-          </div>
-          <div class="reaction-card__body">
-            <div class="reaction-card__title">{{ n.actionName }}</div>
-            <div class="reaction-card__desc">{{ n.desc }}</div>
           </div>
         </div>
       </div>
-      <ConnectionLine
-        v-for="(conn,i) in connections"
-        :key="`${conn.from}-${conn.to}-${i}`"
-        :from="conn.from"
-        :to="conn.to"
-        :nodes="nodes"
-      />
-      <Node
-        v-for="node in nodes"
-        :key="node.id"
-        :node="node"
-        :isSelected="selectedNode === node.id"
-        :connectingFrom="connectingFrom"
-        @dragNode="handleDrag"
-        @deleteNode="requestDelete"
-        @selectNode="selectNode"
-        @startConnect="startConnect"
-        @endConnect="endConnect"
-      />
-      <div class="help">Double-click to add node • Drag nodes to move • Click connectors to link</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch, defineComponent, h } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { PlusIcon, PlayIcon, XIcon, MailIcon, ClockIcon, GithubIcon, MessageSquareIcon, CloudIcon, CalendarIcon } from 'lucide-vue-next'
+import { api } from '@/services/api'
 
 const props = defineProps({ areaId: { type: String, default: null } })
-const storageKey = computed(() => props.areaId ? `area-canvas-${props.areaId}` : 'area-canvas-default')
 
-function loadSnapshot() {
-  const raw = localStorage.getItem(storageKey.value)
-  if (!raw) return null
-  try { return JSON.parse(raw) } catch { return null }
-}
-const snapshot = loadSnapshot()
-function persistSnapshot() {
-  const payload = {
-    areaName: areaName.value,
-    nodes: nodes.value,
-    connections: connections.value,
-    cardPositions: cardPositions.value,
-    reactionCardPositions: reactionCardPositions.value
-  }
-  localStorage.setItem(storageKey.value, JSON.stringify(payload))
-}
-function makeDefaultNodes() {
-  const stamp = Date.now()
-  return [
-    { id: stamp, type: 'action', service: 'github', actionName: 'New Issue', desc: 'Triggers on new issues', x: 100, y: 150 },
-    { id: stamp + 1, type: 'reaction', service: 'discord', actionName: 'Send Message', desc: 'Posts to #alerts', x: 450, y: 150 }
-  ]
-}
-function makeDefaultConnections(nodesList) {
-  const firstAction = nodesList.find(n => n.type === 'action')
-  const firstReaction = nodesList.find(n => n.type === 'reaction')
-  return firstAction && firstReaction ? [{ from: firstAction.id, to: firstReaction.id }] : []
-}
+const areaName = ref(props.areaId ? `Automation #${props.areaId}` : 'New Automation')
+const titleFocused = ref(false)
 
 const services = {
   gmail: { name: 'Gmail', color: '#EA4335', icon: MailIcon },
@@ -196,7 +349,7 @@ const services = {
   dropbox: { name: 'Dropbox', color: '#0061FF', icon: CloudIcon },
   outlook: { name: 'Outlook', color: '#0078D4', icon: CalendarIcon }
 }
-const defaultServiceIcon = PlusIcon
+
 const actionsList = [
   { service: 'gmail', name: 'New email received', desc: 'Triggers when a new email arrives' },
   { service: 'gmail', name: 'Email with attachment', desc: 'Triggers on emails with files' },
@@ -205,302 +358,192 @@ const actionsList = [
   { service: 'github', name: 'New Issue', desc: 'Triggers on new issues' },
   { service: 'github', name: 'Pull Request', desc: 'Triggers on new PRs' }
 ]
+
 const reactionsList = [
-  { service: 'discord', name: 'Send Message', desc: 'Posts to #alerts' },
+  { service: 'discord', name: 'Send Message', desc: 'Posts to a channel' },
   { service: 'gmail', name: 'Send Email', desc: 'Sends an email' },
   { service: 'dropbox', name: 'Upload File', desc: 'Uploads a file to Dropbox' },
   { service: 'outlook', name: 'Create Event', desc: 'Creates a calendar event' },
   { service: 'github', name: 'Create Issue', desc: 'Creates a new issue' }
 ]
-const REACTION_CANVAS_ORIGIN = { x: 460, y: 220 }
 
-const areaName = ref(snapshot?.areaName || (props.areaId ? `Automation #${props.areaId}` : 'New Automation'))
-const titleFocused = ref(false)
-const nodes = ref(snapshot?.nodes || makeDefaultNodes())
-const connections = ref(snapshot?.connections || makeDefaultConnections(nodes.value))
-const pendingDeleteId = ref(null)
-const selectedNode = ref(null)
-const picker = ref(null)
-const connectingFrom = ref(null)
-const canvasRef = ref(null)
-// Maintain ordering for action nodes (cards)
-const actionOrder = ref(nodes.value.filter(n => n.type==='action').map(n => n.id))
-const orderedActionNodes = computed(() => actionOrder.value.map(id => nodes.value.find(n => n.id === id)).filter(Boolean))
-const reactionOrder = ref(nodes.value.filter(n => n.type==='reaction').map(n => n.id))
-const orderedReactionNodes = computed(() => reactionOrder.value.map(id => nodes.value.find(n => n.id === id)).filter(Boolean))
-const showActionMenu = ref(false)
-const showReactionMenu = ref(false)
+// State
+const showActionPicker = ref(false)
+const showReactionPicker = ref(false)
+const selectedAction = ref(null)
+const selectedReaction = ref(null)
 
-function toggleActionMenu() {
-  showActionMenu.value = !showActionMenu.value
-  if (showActionMenu.value) showReactionMenu.value = false
-}
-function toggleReactionMenu() {
-  showReactionMenu.value = !showReactionMenu.value
-  if (showReactionMenu.value) showActionMenu.value = false
-}
-function closeActionMenu() { showActionMenu.value = false }
-function closeReactionMenu() { showReactionMenu.value = false }
-function selectAction(item) {
-  const count = nodes.value.filter(n => n.type === 'action').length
-  const baseX = 100 + (count * 40)
-  const baseY = 150
-  const id = Date.now()
-  nodes.value.push({ id, type: 'action', service: item.service, actionName: item.name, desc: item.desc, x: baseX, y: baseY })
-  actionOrder.value.push(id)
-  setInitialCardPosition(id)
-  closeActionMenu()
-}
-function selectReaction(item) {
-  const id = Date.now()
-  nodes.value.push({
-    id,
-    type: 'reaction',
-    service: item.service,
-    actionName: item.name,
-    desc: item.desc,
-    x: REACTION_CANVAS_ORIGIN.x,
-    y: REACTION_CANVAS_ORIGIN.y
-  })
-  reactionOrder.value.push(id)
-  setInitialReactionCardPosition(id)
-  closeReactionMenu()
-}
-function requestDelete(id) {
-  pendingDeleteId.value = id
-}
-function cancelDelete() {
-  pendingDeleteId.value = null
-}
-function confirmDelete() {
-  if (pendingDeleteId.value != null) {
-    deleteNode(pendingDeleteId.value)
-    pendingDeleteId.value = null
-  }
-}
-function handleOutside(e) {
-  if (!showActionMenu.value && !showReactionMenu.value) return
-  const actionMenuEl = document.querySelector('.action-dropdown')
-  const actionBtnEl = document.querySelector('.mini-btn.action')
-  const reactionMenuEl = document.querySelector('.reaction-dropdown')
-  const reactionBtnEl = document.querySelector('.mini-btn.reaction')
-  if (showActionMenu.value && !(actionMenuEl?.contains(e.target) || actionBtnEl?.contains(e.target))) {
-    closeActionMenu()
-  }
-  if (showReactionMenu.value && !(reactionMenuEl?.contains(e.target) || reactionBtnEl?.contains(e.target))) {
-    closeReactionMenu()
-  }
-}
-onMounted(() => window.addEventListener('click', handleOutside))
-onBeforeUnmount(() => window.removeEventListener('click', handleOutside))
-
-function handleCanvasClick(e) {
-   if (e.target === canvasRef.value || e.target.tagName === 'svg') {
-     selectedNode.value = null
-     connectingFrom.value = null
-   }
- }
-function handleCanvasDouble(e) {
-  if (e.target !== canvasRef.value && e.target.tagName !== 'svg') return
-  const rect = canvasRef.value.getBoundingClientRect()
-  picker.value = { x: e.clientX - rect.left, y: e.clientY - rect.top, type: 'action' }
-}
-function openPicker(type, x, y) { picker.value = { type, x, y } }
-function addNode(item) {
-  const id = Date.now()
-  nodes.value.push({ id, type: picker.value.type, service: item.service, actionName: item.name, desc: item.desc, x: picker.value.x, y: picker.value.y })
-  if (picker.value.type === 'action') {
-    actionOrder.value.push(id)
-    setInitialCardPosition(id)
-  } else if (picker.value.type === 'reaction') {
-    reactionOrder.value.push(id)
-    setInitialReactionCardPosition(id)
-  }
-  picker.value = null
-}
-function deleteNode(id) {
-   const target = nodes.value.find(n=>n.id===id)
-   nodes.value = nodes.value.filter(n => n.id !== id)
-   connections.value = connections.value.filter(c => c.from !== id && c.to !== id)
-   if (target && target.type==='action') {
-     actionOrder.value = actionOrder.value.filter(aid => aid !== id)
-     const { [id]: _, ...rest } = cardPositions.value
-     cardPositions.value = rest
-   } else if (target && target.type==='reaction') {
-     reactionOrder.value = reactionOrder.value.filter(rid => rid !== id)
-     const { [id]: __, ...restReactions } = reactionCardPositions.value
-     reactionCardPositions.value = restReactions
-   }
-   if (pendingDeleteId.value === id) pendingDeleteId.value = null
-   persistSnapshot()
-}
-function selectNode(id) { selectedNode.value = id }
-function startConnect(id) { connectingFrom.value = id }
-function endConnect(id) {
-  if (connectingFrom.value && connectingFrom.value !== id) {
-    const exists = connections.value.some(c => c.from === connectingFrom.value && c.to === id)
-    if (!exists) connections.value.push({ from: connectingFrom.value, to: id })
-  }
-  connectingFrom.value = null
-}
-function handleDrag(id, startEvent) {
-  const startX = startEvent.clientX
-  const startY = startEvent.clientY
-  const node = nodes.value.find(n => n.id === id)
-  const originX = node.x
-  const originY = node.y
-  function onMove(ev) {
-    const dx = ev.clientX - startX
-    const dy = ev.clientY - startY
-    node.x = originX + dx
-    node.y = originY + dy
-  }
-  function onUp() {
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    persistSnapshot()
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-}
-
-// Card positions
-const cardPositions = ref(snapshot?.cardPositions || {})
-const draggingCardId = ref(null)
-const cardDragOffset = ref({ x: 0, y: 0 })
-function getDefaultCardPosition() {
-  return { x: 32, y: 24 }
-}
-function ensureCardPosition(id) {
-  if (!id || cardPositions.value[id]) return
-  cardPositions.value = { ...cardPositions.value, [id]: getDefaultCardPosition(id) }
-}
-watch(actionOrder, ids => ids.forEach(ensureCardPosition), { immediate: true })
-function cardStyle(id) {
-  const pos = cardPositions.value[id] || getDefaultCardPosition(id)
-  return { left: `${pos.x}px`, top: `${pos.y}px` }
-}
-function startCardDrag(id, event) {
-  ensureCardPosition(id)
-  const current = cardPositions.value[id] || getDefaultCardPosition(id)
-  cardDragOffset.value = { x: event.clientX - current.x, y: event.clientY - current.y }
-  draggingCardId.value = id
-  function onMove(ev) {
-    if (!draggingCardId.value) return
-    const x = ev.clientX - cardDragOffset.value.x
-    const y = ev.clientY - cardDragOffset.value.y
-    cardPositions.value = { ...cardPositions.value, [id]: { x, y } }
-  }
-  function onUp() {
-    draggingCardId.value = null
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    persistSnapshot()
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-}
-
-const reactionCardPositions = ref(snapshot?.reactionCardPositions || {})
-const draggingReactionCardId = ref(null)
-const reactionCardDragOffset = ref({ x: 0, y: 0 })
-function getDefaultReactionCardPosition() {
-  return { x: 32, y: 220 }
-}
-function ensureReactionCardPosition(id) {
-  if (!id || reactionCardPositions.value[id]) return
-  reactionCardPositions.value = { ...reactionCardPositions.value, [id]: getDefaultReactionCardPosition(id) }
-}
-watch(reactionOrder, ids => ids.forEach(ensureReactionCardPosition), { immediate: true })
-function reactionCardStyle(id) {
-  const pos = reactionCardPositions.value[id] || getDefaultReactionCardPosition(id)
-  return { left: `${pos.x}px`, top: `${pos.y}px` }
-}
-function setInitialReactionCardPosition(id) {
-  if (reactionCardPositions.value[id]) return
-  reactionCardPositions.value = { ...reactionCardPositions.value, [id]: getDefaultReactionCardPosition(id) }
-}
-function startReactionCardDrag(id, event) {
-  ensureReactionCardPosition(id)
-  const current = reactionCardPositions.value[id] || getDefaultReactionCardPosition(id)
-  reactionCardDragOffset.value = { x: event.clientX - current.x, y: event.clientY - current.y }
-  draggingReactionCardId.value = id
-  function onMove(ev) {
-    if (!draggingReactionCardId.value) return
-    const x = ev.clientX - reactionCardDragOffset.value.x
-    const y = ev.clientY - reactionCardDragOffset.value.y
-    reactionCardPositions.value = { ...reactionCardPositions.value, [id]: { x, y } }
-  }
-  function onUp() {
-    draggingReactionCardId.value = null
-    window.removeEventListener('mousemove', onMove)
-    window.removeEventListener('mouseup', onUp)
-    persistSnapshot()
-  }
-  window.addEventListener('mousemove', onMove)
-  window.addEventListener('mouseup', onUp)
-}
-
-watch([nodes, connections, areaName], persistSnapshot, { deep: true })
-
-const GridBackground = defineComponent({
-  name: 'GridBackground',
-  setup() {
-    return () => h('svg', { class: 'grid-bg', xmlns: 'http://www.w3.org/2000/svg', preserveAspectRatio: 'none' }, [
-      h('defs', [
-        h('pattern', { id: 'canvas-grid', width: 20, height: 20, patternUnits: 'userSpaceOnUse' }, [
-          h('rect', { width: 20, height: 20, fill: 'var(--color-canvas)' }),
-          h('path', { d: 'M 20 0 L 0 0 0 20', fill: 'none', stroke: 'var(--color-canvas-grid)', 'stroke-width': 0.5 })
-        ])
-      ]),
-      h('rect', { width: '100%', height: '100%', fill: 'var(--color-canvas)' }),
-      h('rect', { width: '100%', height: '100%', fill: 'url(#canvas-grid)' })
-    ])
-  }
+// Configuration objects
+const actionConfig = ref({
+  // Gmail
+  interval: '300',
+  senderFilter: '',
+  subjectFilter: '',
+  // Timer
+  intervalValue: 5,
+  intervalUnit: 'minutes',
+  // GitHub
+  repository: '',
+  eventType: 'issues'
 })
 
-const ConnectionLine = defineComponent({
-  name: 'ConnectionLine',
-  props: {
-    from: { type: Number, required: true },
-    to: { type: Number, required: true },
-    nodes: { type: Array, required: true }
-  },
-  setup(props) {
-    return () => {
-      const fromNode = props.nodes.find(n => n.id === props.from)
-      const toNode = props.nodes.find(n => n.id === props.to)
-      if (!fromNode || !toNode) return null
-      const x1 = fromNode.x + 220
-      const y1 = fromNode.y + 50
-      const x2 = toNode.x
-      const y2 = toNode.y + 50
-      const midX = (x1 + x2) / 2
-      const d = `M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`
-      return h('svg', { class: 'conn-svg' }, [
-        h('path', { d, stroke: 'var(--color-accent)', 'stroke-width': 3, fill: 'none' }),
-        h('circle', { cx: x2, cy: y2, r: 6, fill: 'var(--color-accent)' })
-      ])
+const reactionConfig = ref({
+  // Discord
+  channelId: '',
+  webhookUrl: '',
+  channelName: '',
+  message: '',
+  // Gmail
+  to: '',
+  subject: '',
+  body: '',
+  // Dropbox
+  folderPath: '',
+  fileName: ''
+})
+
+// Variable mappings for each service
+const serviceVariables = {
+  gmail: ['sender', 'subject', 'body', 'unreadCount', 'receivedAt'],
+  timer: ['timestamp', 'date', 'time'],
+  github: ['author', 'title', 'url', 'repository']
+}
+
+// Functions
+function selectActionTrigger(action) {
+  selectedAction.value = action
+  showActionPicker.value = false
+}
+
+function selectReactionAction(reaction) {
+  selectedReaction.value = reaction
+  showReactionPicker.value = false
+}
+
+function removeAction() {
+  selectedAction.value = null
+  actionConfig.value = {
+    interval: '300',
+    senderFilter: '',
+    subjectFilter: '',
+    intervalValue: 5,
+    intervalUnit: 'minutes',
+    repository: '',
+    eventType: 'issues'
+  }
+}
+
+function removeReaction() {
+  selectedReaction.value = null
+  reactionConfig.value = {
+    channelId: '',
+    webhookUrl: '',
+    channelName: '',
+    message: '',
+    to: '',
+    subject: '',
+    body: '',
+    folderPath: '',
+    fileName: ''
+  }
+}
+
+function getAvailableVariables() {
+  if (!selectedAction.value) return []
+  return serviceVariables[selectedAction.value.service] || []
+}
+
+function insertVariable(varName, field = 'message') {
+  const variable = `{{${varName}}}`
+  if (field === 'message') {
+    const textarea = document.querySelector('textarea')
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+      const text = reactionConfig.value.message
+      reactionConfig.value.message = text.substring(0, start) + variable + text.substring(end)
+    } else {
+      reactionConfig.value.message += variable
     }
+  } else if (field === 'body') {
+    reactionConfig.value.body += variable
   }
-})
+}
 
-const Node = defineComponent({
-  name: 'CanvasNode',
-  props: {
-    node: { type: Object, required: true },
-    isSelected: { type: Boolean, default: false },
-    connectingFrom: { type: Number, default: null }
-  },
-  emits: ['dragNode', 'deleteNode', 'selectNode', 'startConnect', 'endConnect'],
-  setup(props, { emit }) {
-    const handleMouseDown = () => {
-      if (props.connectingFrom != null) emit('endConnect', props.node.id)
-      else emit('startConnect', props.node.id)
-    }
-    return { handleMouseDown }
+async function saveWorkflow() {
+  if (!selectedAction.value || !selectedReaction.value) {
+    alert('Please configure both a trigger and an action')
+    return
   }
-})
+
+  try {
+    let saved;
+
+    // Check if this is a Gmail → Discord workflow (use /api/areas)
+    if (selectedAction.value.service === 'gmail' && selectedReaction.value.service === 'discord') {
+      // Validate webhook URL is provided
+      if (!reactionConfig.value.webhookUrl || !reactionConfig.value.webhookUrl.trim()) {
+        alert('Please provide a Discord webhook URL. You can create one in Discord: Server Settings → Integrations → Webhooks')
+        return
+      }
+
+      // Get service connections to find the IDs
+      const connections = await api.getConnectedServices()
+      const gmailConnection = connections.find(c => c.type === 'GMAIL')
+      const discordConnection = connections.find(c => c.type === 'DISCORD')
+
+      if (!gmailConnection) {
+        alert('Please connect your Gmail account first in the Services page')
+        return
+      }
+      if (!discordConnection) {
+        alert('Please connect your Discord bot first in the Services page')
+        return
+      }
+
+      const areaData = {
+        actionConnectionId: gmailConnection.id,
+        reactionConnectionId: discordConnection.id,
+        gmailLabel: 'INBOX',
+        gmailSubjectContains: actionConfig.value.subjectFilter || '',
+        gmailFromAddress: actionConfig.value.senderFilter || '',
+        discordWebhookUrl: reactionConfig.value.webhookUrl.trim(),
+        discordChannelName: reactionConfig.value.channelName || 'general',
+        discordMessageTemplate: reactionConfig.value.message || 'New email: {{subject}}'
+      }
+
+      saved = await api.createArea(areaData)
+      alert(`✓ Area "${areaName.value}" created and activated!`)
+    } else {
+      // Use generic workflow API for other combinations
+      const workflow = {
+        name: areaName.value,
+        trigger: {
+          service: selectedAction.value.service,
+          type: selectedAction.value.name,
+          config: { ...actionConfig.value }
+        },
+        action: {
+          service: selectedReaction.value.service,
+          type: selectedReaction.value.name,
+          config: { ...reactionConfig.value }
+        }
+      }
+
+      saved = await api.createWorkflow(workflow)
+      alert(`✓ Workflow "${saved.name}" created and activated!`)
+    }
+
+    // Reset form
+    areaName.value = 'New Automation'
+    removeAction()
+    removeReaction()
+  } catch (error) {
+    console.error('Failed to save workflow:', error)
+    alert('Failed to save workflow: ' + error.message)
+  }
+}
+
 </script>
 
 <style scoped src="@/assets/PipelineEditor.css"></style>
