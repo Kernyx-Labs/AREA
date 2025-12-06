@@ -87,15 +87,14 @@ public class GmailOAuthController {
      * Google redirects here with the authorization code
      * We exchange it for tokens and create the service connection
      */
-    @GetMapping("/callback")
-    public ResponseEntity<Map<String, Object>> handleCallback(@RequestParam("code") String code,
+    @GetMapping(value = "/callback", produces = "text/html")
+    public ResponseEntity<String> handleCallback(@RequestParam("code") String code,
                                                                @RequestParam(value = "error", required = false) String error) {
         if (error != null) {
             logger.error("OAuth error: {}", error);
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "OAuth authorization failed",
-                "details", error
-            ));
+            return ResponseEntity.badRequest().body(
+                generateHtmlResponse("Error", "OAuth authorization failed: " + error, false)
+            );
         }
 
         try {
@@ -127,10 +126,9 @@ public class GmailOAuthController {
 
             if (refreshToken == null) {
                 logger.warn("No refresh token received. User may have already authorized this app.");
-                return ResponseEntity.badRequest().body(Map.of(
-                    "error", "No refresh token received",
-                    "message", "Please revoke app access at https://myaccount.google.com/permissions and try again"
-                ));
+                return ResponseEntity.badRequest().body(
+                    generateHtmlResponse("Error", "No refresh token received. Please revoke app access at https://myaccount.google.com/permissions and try again", false)
+                );
             }
 
             // Get user email
@@ -149,22 +147,55 @@ public class GmailOAuthController {
 
             logger.info("Successfully created Gmail connection with ID: {}", saved.getId());
 
-            return ResponseEntity.ok(Map.of(
-                "status", "success",
-                "message", "Gmail connection created successfully",
-                "connectionId", saved.getId(),
-                "email", userEmail,
-                "type", saved.getType().toString(),
-                "expiresIn", expiresIn
-            ));
+            return ResponseEntity.ok(
+                generateHtmlResponse("Success", "Gmail connected successfully for " + userEmail + ". You can close this window.", true)
+            );
 
         } catch (Exception e) {
             logger.error("Failed to complete OAuth flow", e);
-            return ResponseEntity.status(500).body(Map.of(
-                "error", "Failed to exchange authorization code",
-                "details", e.getMessage()
-            ));
+            return ResponseEntity.status(500).body(
+                generateHtmlResponse("Error", "Failed to exchange authorization code: " + e.getMessage(), false)
+            );
         }
+    }
+
+    /**
+     * Generate HTML response for OAuth callback
+     */
+    private String generateHtmlResponse(String title, String message, boolean success) {
+        String color = success ? "#10b981" : "#ef4444";
+        return "<!DOCTYPE html>" +
+            "<html>" +
+            "<head>" +
+            "<meta charset='UTF-8'>" +
+            "<meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+            "<title>" + title + "</title>" +
+            "<style>" +
+            "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; " +
+            "display: flex; align-items: center; justify-content: center; min-height: 100vh; " +
+            "margin: 0; background: #f9fafb; }" +
+            ".container { text-align: center; padding: 2rem; background: white; " +
+            "border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; }" +
+            ".icon { font-size: 3rem; margin-bottom: 1rem; }" +
+            "h1 { color: " + color + "; margin: 0 0 1rem; }" +
+            "p { color: #6b7280; line-height: 1.5; margin: 0 0 1.5rem; }" +
+            ".close-btn { background: " + color + "; color: white; border: none; " +
+            "padding: 0.75rem 1.5rem; border-radius: 8px; font-size: 1rem; cursor: pointer; }" +
+            ".close-btn:hover { opacity: 0.9; }" +
+            "</style>" +
+            "</head>" +
+            "<body>" +
+            "<div class='container'>" +
+            "<div class='icon'>" + (success ? "✓" : "✗") + "</div>" +
+            "<h1>" + title + "</h1>" +
+            "<p>" + message + "</p>" +
+            "<button class='close-btn' onclick='window.close()'>Close Window</button>" +
+            "</div>" +
+            "<script>" +
+            "setTimeout(() => { window.close(); }, 3000);" +
+            "</script>" +
+            "</body>" +
+            "</html>";
     }
 
     /**
