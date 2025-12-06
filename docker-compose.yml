@@ -57,16 +57,6 @@ services:
     networks:
       - area-net
 
-  mobile-apk-builder:
-    build:
-      context: ./mobile
-      dockerfile: Dockerfile.apk-builder
-    container_name: area-mobile-apk-builder
-    networks:
-      - area-net
-    volumes:
-      - ./mobile/apk-output:/app/build/app/outputs/flutter-apk
-
 networks:
   area-net:
     driver: bridge
