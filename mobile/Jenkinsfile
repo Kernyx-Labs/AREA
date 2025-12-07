@@ -3,6 +3,22 @@ node {
         checkout scm
     }
 
+    stage('Check git status') {
+        //Give the hash of the latest commit
+        sh 'git rev-parse HEAD'
+
+        //Show the branch name
+        sh 'git rev-parse --abbrev-ref HEAD'
+    }
+
+    stage('Check Files') {
+        sh 'ls -la'
+        // Check if sonar-project.properties exists
+        if (!fileExists('sonar-project.properties')) {
+            error "sonar-project.properties file is missing!"
+        }
+    }
+
     stage('SonarQube Analysis') {
         def scannerHome = tool 'SonarScanner';
         withSonarQubeEnv() {
