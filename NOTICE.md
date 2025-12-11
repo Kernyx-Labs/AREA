@@ -25,7 +25,7 @@ The following additional terms and clarifications apply specifically to this rep
   - Using this repository as the basis for a deliverable in an Epitech module, project, or evaluation.
 
 - Such actions fall under **plagiarism** according to Epitech’s internal regulations and are considered a violation of academic integrity.
-  Students caught engaging in this practice may face disciplinary sanctions from the school.
+  Students caught engaging in this practice may face disciplinary sanctions from the school, like an invalidation of the affected project or other penalties (like an echec on the module).
 
 - The repository may, however, be **consulted for learning purposes only** (e.g. to read, understand, and study coding patterns or practices).
   Active reuse in academic submissions is explicitly disallowed.
@@ -35,10 +35,6 @@ The following additional terms and clarifications apply specifically to this rep
 ## 3. Authorized Usage Outside Epitech
 
 - Outside of the Epitech academic context, this repository is made available to the public under the terms of the **GNU GPLv3 license**.
-  This means:
-  - You may use, modify, and redistribute the code, provided that you comply with the conditions of the GPLv3.
-  - Any derivative works must also remain licensed under the GPLv3.
-  - Proper attribution to the Aincrad-Flux organization must be maintained.
 
 - Contributions to this repository (pull requests, issues, patches) are welcome.
   By contributing, you agree that your work will also be distributed under the GPLv3 and remain subject to the additional terms outlined in this `NOTICE.md`.
