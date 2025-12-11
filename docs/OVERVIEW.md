@@ -2,15 +2,64 @@
 
 ## 📖 Table of Contents
 
-1. [Introduction](#introduction)
-2. [Project Overview](#project-overview)
-3. [Architecture](#architecture)
-4. [Installation](#installation)
-5. [Build Instructions](#build-instructions)
-6. [Usage](#usage)
-7. [Troubleshooting](#troubleshooting)
-8. [Deployment](#deployment)
-9. [Contributing](#contributing)
+- [AREA Project - Complete Documentation](#area-project---complete-documentation)
+  - [📖 Table of Contents](#-table-of-contents)
+  - [Introduction](#introduction)
+    - [Key Features](#key-features)
+  - [Project Overview](#project-overview)
+    - [System Components](#system-components)
+    - [Directory Structure](#directory-structure)
+  - [Architecture](#architecture)
+    - [High-Level Architecture](#high-level-architecture)
+    - [Data Flow](#data-flow)
+  - [Installation](#installation)
+    - [Prerequisites](#prerequisites)
+      - [For Docker Deployment (Recommended)](#for-docker-deployment-recommended)
+      - [For Local Development](#for-local-development)
+    - [Quick Start with Docker](#quick-start-with-docker)
+    - [Environment Configuration](#environment-configuration)
+  - [Build Instructions](#build-instructions)
+    - [Building with Docker](#building-with-docker)
+    - [Building Locally](#building-locally)
+      - [Backend (Spring Boot)](#backend-spring-boot)
+      - [Web Client (Vue.js)](#web-client-vuejs)
+      - [Mobile Client (Flutter)](#mobile-client-flutter)
+  - [Usage](#usage)
+    - [Starting the Application](#starting-the-application)
+      - [With Docker (Recommended)](#with-docker-recommended)
+      - [Local Development](#local-development)
+    - [Using the Platform](#using-the-platform)
+      - [1. User Registration/Login](#1-user-registrationlogin)
+      - [2. Connecting Services](#2-connecting-services)
+      - [3. Creating an AREA](#3-creating-an-area)
+      - [4. Managing AREAs](#4-managing-areas)
+    - [API Usage](#api-usage)
+  - [Troubleshooting](#troubleshooting)
+    - [Common Issues and Solutions](#common-issues-and-solutions)
+      - [1. Docker Issues](#1-docker-issues)
+      - [2. Database Issues](#2-database-issues)
+      - [3. Backend Issues](#3-backend-issues)
+      - [4. Web Client Issues](#4-web-client-issues)
+      - [5. Mobile Issues](#5-mobile-issues)
+      - [6. OAuth2 Issues](#6-oauth2-issues)
+    - [Debug Mode](#debug-mode)
+      - [Backend Debug Mode](#backend-debug-mode)
+      - [Web Debug Mode](#web-debug-mode)
+    - [Logging](#logging)
+      - [View All Logs](#view-all-logs)
+      - [Backend Logs](#backend-logs)
+      - [Check System Resources](#check-system-resources)
+  - [Deployment](#deployment)
+    - [Production Deployment with Docker](#production-deployment-with-docker)
+    - [CI/CD Pipeline](#cicd-pipeline)
+    - [Monitoring](#monitoring)
+  - [Contributing](#contributing)
+    - [Development Workflow](#development-workflow)
+    - [Code Standards](#code-standards)
+    - [Testing](#testing)
+  - [Additional Resources](#additional-resources)
+  - [Support](#support)
+
 
 ---
 
@@ -420,31 +469,9 @@ curl -X POST http://localhost:8080/api/auth/login \
 
 ### API Usage
 
-#### Get Available Services
-```bash
-curl http://localhost:8080/api/services \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
-```
+In the root, you can find a postman collection `AREA_API.postman_collection.json` to test all available endpoints.
 
-#### Create AREA
-```bash
-curl -X POST http://localhost:8080/api/areas \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "GitHub to Discord",
-    "actionService": "github",
-    "actionType": "new_issue",
-    "actionConfig": {
-      "repository": "username/repo"
-    },
-    "reactionService": "discord",
-    "reactionType": "send_message",
-    "reactionConfig": {
-      "webhookUrl": "https://discord.com/api/webhooks/..."
-    }
-  }'
-```
+See [API Documentation](API_DOCUMENTATION.md) for detailed endpoint information. Or the swagger UI at: `http://localhost:8080/swagger-ui.html`
 
 ---
 
