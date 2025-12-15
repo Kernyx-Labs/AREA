@@ -4,6 +4,8 @@ import com.area.server.controller.dto.AreaResponse;
 import com.area.server.controller.dto.CreateAreaRequest;
 import com.area.server.controller.dto.ExecutionLogResponse;
 import com.area.server.controller.dto.UpdateAreaStatusRequest;
+import com.area.server.dto.response.ApiResponse;
+import com.area.server.exception.ResourceNotFoundException;
 import com.area.server.model.Area;
 import com.area.server.model.AreaExecutionLog;
 import com.area.server.model.AreaTriggerState;
@@ -38,52 +40,36 @@ public class AreaController {
         this.areaService = areaService;
     }
 
+    /**
+     * Create a new AREA (Action-REAction)
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
+     */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createArea(@Valid @RequestBody CreateAreaRequest request) {
-        try {
-            logger.info("Creating new AREA: actionConnection={}, reactionConnection={}",
-                       request.getActionConnectionId(), request.getReactionConnectionId());
+    public ResponseEntity<ApiResponse<AreaResponse>> createArea(@Valid @RequestBody CreateAreaRequest request) {
+        logger.info("Creating new AREA: actionConnection={}, reactionConnection={}",
+                   request.getActionConnectionId(), request.getReactionConnectionId());
 
-            GmailActionConfig gmailConfig = new GmailActionConfig();
-            gmailConfig.setLabel(request.getGmailLabel());
-            gmailConfig.setSubjectContains(request.getGmailSubjectContains());
-            gmailConfig.setFromAddress(request.getGmailFromAddress());
+        GmailActionConfig gmailConfig = new GmailActionConfig();
+        gmailConfig.setLabel(request.getGmailLabel());
+        gmailConfig.setSubjectContains(request.getGmailSubjectContains());
+        gmailConfig.setFromAddress(request.getGmailFromAddress());
 
-            DiscordReactionConfig discordConfig = new DiscordReactionConfig();
-            discordConfig.setWebhookUrl(request.getDiscordWebhookUrl());
-            discordConfig.setChannelName(request.getDiscordChannelName());
-            discordConfig.setMessageTemplate(request.getDiscordMessageTemplate());
+        DiscordReactionConfig discordConfig = new DiscordReactionConfig();
+        discordConfig.setWebhookUrl(request.getDiscordWebhookUrl());
+        discordConfig.setChannelName(request.getDiscordChannelName());
+        discordConfig.setMessageTemplate(request.getDiscordMessageTemplate());
 
-            Area area = areaService.createArea(
-                request.getActionConnectionId(),
-                request.getReactionConnectionId(),
-                gmailConfig,
-                discordConfig
-            );
+        Area area = areaService.createArea(
+            request.getActionConnectionId(),
+            request.getReactionConnectionId(),
+            gmailConfig,
+            discordConfig
+        );
 
-            AreaResponse response = mapToAreaResponse(area);
+        AreaResponse response = mapToAreaResponse(area);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                "success", true,
-                "message", "AREA created successfully",
-                "area", response
-            ));
-
-        } catch (IllegalArgumentException e) {
-            logger.error("Validation error creating AREA: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", "Validation error",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Error creating AREA", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Failed to create AREA",
-                "message", e.getMessage()
-            ));
-        }
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success("AREA created successfully", response));
     }
 
     @GetMapping
@@ -112,58 +98,28 @@ public class AreaController {
         }
     }
 
+    /**
+     * Get a specific AREA by ID
+     * Throws ResourceNotFoundException if not found (handled by GlobalExceptionHandler)
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getArea(@PathVariable Long id) {
-        try {
-            Area area = areaService.findById(id);
-            AreaResponse response = mapToAreaResponse(area);
+    public ResponseEntity<ApiResponse<AreaResponse>> getArea(@PathVariable Long id) {
+        Area area = areaService.findById(id);
+        AreaResponse response = mapToAreaResponse(area);
 
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "area", response
-            ));
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "AREA not found",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Error getting AREA {}", id, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Failed to get AREA",
-                "message", e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    /**
+     * Delete an AREA by ID
+     * Throws ResourceNotFoundException if not found (handled by GlobalExceptionHandler)
+     */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteArea(@PathVariable Long id) {
-        try {
-            logger.info("Deleting AREA with ID: {}", id);
-            areaService.deleteArea(id);
+    public ResponseEntity<ApiResponse<Void>> deleteArea(@PathVariable Long id) {
+        logger.info("Deleting AREA with ID: {}", id);
+        areaService.deleteArea(id);
 
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "AREA deleted successfully"
-            ));
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "AREA not found",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Error deleting AREA {}", id, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Failed to delete AREA",
-                "message", e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success("AREA deleted successfully"));
     }
 
     @PutMapping("/{id}/status")

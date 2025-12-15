@@ -1,6 +1,8 @@
 package com.area.server.controller;
 
 import com.area.server.dto.CreateWorkflowRequest;
+import com.area.server.dto.response.ApiResponse;
+import com.area.server.exception.ResourceNotFoundException;
 import com.area.server.model.Workflow;
 import com.area.server.repository.WorkflowRepository;
 import com.area.server.service.WorkflowExecutionService;
@@ -33,242 +35,145 @@ public class WorkflowController {
      * Get all workflows
      */
     @GetMapping
-    public ResponseEntity<Map<String, Object>> listWorkflows(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> listWorkflows(
             @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
-        try {
-            List<Workflow> workflows = activeOnly
-                    ? workflowRepository.findByActive(true)
-                    : workflowRepository.findAll();
+        
+        List<Workflow> workflows = activeOnly
+                ? workflowRepository.findByActive(true)
+                : workflowRepository.findAll();
 
-            List<Map<String, Object>> workflowList = workflows.stream()
-                    .map(this::mapToResponse)
-                    .toList();
+        List<Map<String, Object>> workflowList = workflows.stream()
+                .map(this::mapToResponse)
+                .toList();
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "workflows", workflowList
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to list workflows", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to load workflows"
-            ));
-        }
+        Map<String, Object> data = Map.of(
+                "workflows", workflowList,
+                "total", workflowList.size()
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     /**
      * Get a single workflow by ID
      */
     @GetMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> getWorkflow(@PathVariable Long id) {
-        try {
-            Optional<Workflow> workflow = workflowRepository.findById(id);
-            if (workflow.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "success", false,
-                        "error", "Workflow not found"
-                ));
-            }
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getWorkflow(@PathVariable Long id) {
+        Workflow workflow = workflowRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Workflow", id));
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "workflow", mapToResponse(workflow.get())
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to get workflow", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to load workflow"
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success(mapToResponse(workflow)));
     }
 
     /**
      * Create a new workflow
      */
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
-        try {
-            Workflow workflow = new Workflow();
-            workflow.setName(request.getName());
-            workflow.setDescription("Trigger: " + request.getTrigger().getService() + " → Action: " + request.getAction().getService());
-            workflow.setActive(true); // Start active by default
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) throws Exception {
+        Workflow workflow = new Workflow();
+        workflow.setName(request.getName());
+        workflow.setDescription("Trigger: " + request.getTrigger().getService() + " → Action: " + request.getAction().getService());
+        workflow.setActive(true); // Start active by default
 
-            // Store the workflow data as JSON
-            Map<String, Object> workflowData = Map.of(
-                    "trigger", request.getTrigger(),
-                    "action", request.getAction()
-            );
-            String workflowDataJson = objectMapper.writeValueAsString(workflowData);
-            workflow.setWorkflowData(workflowDataJson);
+        // Store the workflow data as JSON
+        Map<String, Object> workflowData = Map.of(
+                "trigger", request.getTrigger(),
+                "action", request.getAction()
+        );
+        String workflowDataJson = objectMapper.writeValueAsString(workflowData);
+        workflow.setWorkflowData(workflowDataJson);
 
-            Workflow saved = workflowRepository.save(workflow);
+        Workflow saved = workflowRepository.save(workflow);
 
-            logger.info("Created and activated workflow: {}", saved.getId());
+        logger.info("Created and activated workflow: {}", saved.getId());
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "workflow", mapToResponse(saved)
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to create workflow", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to create workflow",
-                    "message", e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success("Workflow created successfully", mapToResponse(saved)));
     }
 
     /**
      * Update an existing workflow
      */
     @PutMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> updateWorkflow(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateWorkflow(
             @PathVariable Long id,
-            @Valid @RequestBody Map<String, Object> request) {
-        try {
-            Optional<Workflow> existing = workflowRepository.findById(id);
-            if (existing.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "success", false,
-                        "error", "Workflow not found"
-                ));
-            }
+            @Valid @RequestBody Map<String, Object> request) throws Exception {
+        
+        Workflow workflow = workflowRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Workflow", id));
 
-            Workflow workflow = existing.get();
-            if (request.containsKey("name")) {
-                workflow.setName((String) request.get("name"));
-            }
-            if (request.containsKey("description")) {
-                workflow.setDescription((String) request.get("description"));
-            }
-            if (request.containsKey("workflowData")) {
-                String workflowData = objectMapper.writeValueAsString(request.get("workflowData"));
-                workflow.setWorkflowData(workflowData);
-            }
-
-            Workflow saved = workflowRepository.save(workflow);
-
-            logger.info("Updated workflow: {}", saved.getId());
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "workflow", mapToResponse(saved)
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to update workflow", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to update workflow",
-                    "message", e.getMessage()
-            ));
+        if (request.containsKey("name")) {
+            workflow.setName((String) request.get("name"));
         }
+        if (request.containsKey("description")) {
+            workflow.setDescription((String) request.get("description"));
+        }
+        if (request.containsKey("workflowData")) {
+            String workflowData = objectMapper.writeValueAsString(request.get("workflowData"));
+            workflow.setWorkflowData(workflowData);
+        }
+
+        Workflow saved = workflowRepository.save(workflow);
+
+        logger.info("Updated workflow: {}", saved.getId());
+
+        return ResponseEntity.ok(ApiResponse.success("Workflow updated successfully", mapToResponse(saved)));
     }
 
     /**
      * Activate/deactivate a workflow
      */
     @PatchMapping("/{id}/status")
-    public ResponseEntity<Map<String, Object>> updateWorkflowStatus(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> updateWorkflowStatus(
             @PathVariable Long id,
             @RequestBody Map<String, Boolean> request) {
-        try {
-            Optional<Workflow> existing = workflowRepository.findById(id);
-            if (existing.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "success", false,
-                        "error", "Workflow not found"
-                ));
-            }
+        
+        Workflow workflow = workflowRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Workflow", id));
 
-            Workflow workflow = existing.get();
-            workflow.setActive(request.getOrDefault("active", false));
-            Workflow saved = workflowRepository.save(workflow);
+        workflow.setActive(request.getOrDefault("active", false));
+        Workflow saved = workflowRepository.save(workflow);
 
-            logger.info("Updated workflow {} status to: {}", saved.getId(), saved.isActive());
+        logger.info("Updated workflow {} status to: {}", saved.getId(), saved.isActive());
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "workflow", mapToResponse(saved)
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to update workflow status", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to update workflow status"
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success("Workflow status updated", mapToResponse(saved)));
     }
 
     /**
      * Delete a workflow
      */
     @DeleteMapping("/{id}")
-    public ResponseEntity<Map<String, Object>> deleteWorkflow(@PathVariable Long id) {
-        try {
-            if (!workflowRepository.existsById(id)) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "success", false,
-                        "error", "Workflow not found"
-                ));
-            }
-
-            workflowRepository.deleteById(id);
-
-            logger.info("Deleted workflow: {}", id);
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Workflow deleted successfully"
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to delete workflow", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to delete workflow"
-            ));
+    public ResponseEntity<ApiResponse<Void>> deleteWorkflow(@PathVariable Long id) {
+        if (!workflowRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Workflow", id);
         }
+
+        workflowRepository.deleteById(id);
+
+        logger.info("Deleted workflow: {}", id);
+
+        return ResponseEntity.ok(ApiResponse.success("Workflow deleted successfully"));
     }
 
     /**
      * Force execution of a workflow (for testing)
      */
     @PostMapping("/{id}/execute")
-    public ResponseEntity<Map<String, Object>> executeWorkflow(@PathVariable Long id) {
-        try {
-            Optional<Workflow> workflowOpt = workflowRepository.findById(id);
-            if (workflowOpt.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "success", false,
-                        "error", "Workflow not found"
-                ));
-            }
+    public ResponseEntity<ApiResponse<Void>> executeWorkflow(@PathVariable Long id) {
+        Workflow workflow = workflowRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Workflow", id));
 
-            Workflow workflow = workflowOpt.get();
-            executionService.executeWorkflowManually(workflow);
+        executionService.executeWorkflowManually(workflow);
 
-            logger.info("Manually executed workflow: {}", id);
+        logger.info("Manually executed workflow: {}", id);
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Workflow execution triggered successfully"
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to execute workflow", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to execute workflow: " + e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success("Workflow execution triggered successfully"));
     }
 
     /**
      * Get available triggers, actions, and reactions
      */
     @GetMapping("/available-nodes")
-    public ResponseEntity<Map<String, Object>> getAvailableNodes() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getAvailableNodes() {
         Map<String, Object> triggers = Map.of(
                 "manual", Map.of(
                         "name", "Manual Trigger",
@@ -312,42 +217,27 @@ public class WorkflowController {
                 )
         );
 
-        return ResponseEntity.ok(Map.of(
-                "success", true,
+        Map<String, Object> data = Map.of(
                 "triggers", triggers,
                 "actions", actions,
                 "reactions", reactions
-        ));
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     /**
      * Get workflow execution statistics for the last 24 hours
      */
     @GetMapping("/{id}/stats")
-    public ResponseEntity<Map<String, Object>> getWorkflowStats(@PathVariable Long id) {
-        try {
-            Optional<Workflow> workflow = workflowRepository.findById(id);
-            if (workflow.isEmpty()) {
-                return ResponseEntity.status(404).body(Map.of(
-                        "success", false,
-                        "error", "Workflow not found"
-                ));
-            }
-
-            Map<String, Object> stats = executionService.getWorkflowStats(id);
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "stats", stats
-            ));
-        } catch (Exception e) {
-            logger.error("Failed to get workflow stats", e);
-            return ResponseEntity.status(500).body(Map.of(
-                    "success", false,
-                    "error", "Failed to get stats",
-                    "message", e.getMessage()
-            ));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getWorkflowStats(@PathVariable Long id) {
+        if (!workflowRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Workflow", id);
         }
+
+        Map<String, Object> stats = executionService.getWorkflowStats(id);
+
+        return ResponseEntity.ok(ApiResponse.success(stats));
     }
 
     private Map<String, Object> mapToResponse(Workflow workflow) {
