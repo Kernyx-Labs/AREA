@@ -67,21 +67,26 @@ public class WorkflowController {
 
     /**
      * Create a new workflow
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
      */
     @PostMapping
-    public ResponseEntity<ApiResponse<Map<String, Object>>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) throws Exception {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
         Workflow workflow = new Workflow();
         workflow.setName(request.getName());
         workflow.setDescription("Trigger: " + request.getTrigger().getService() + " → Action: " + request.getAction().getService());
         workflow.setActive(true); // Start active by default
 
         // Store the workflow data as JSON
-        Map<String, Object> workflowData = Map.of(
-                "trigger", request.getTrigger(),
-                "action", request.getAction()
-        );
-        String workflowDataJson = objectMapper.writeValueAsString(workflowData);
-        workflow.setWorkflowData(workflowDataJson);
+        try {
+            Map<String, Object> workflowData = Map.of(
+                    "trigger", request.getTrigger(),
+                    "action", request.getAction()
+            );
+            String workflowDataJson = objectMapper.writeValueAsString(workflowData);
+            workflow.setWorkflowData(workflowDataJson);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to serialize workflow data: " + e.getMessage(), e);
+        }
 
         Workflow saved = workflowRepository.save(workflow);
 
@@ -92,12 +97,14 @@ public class WorkflowController {
 
     /**
      * Update an existing workflow
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
+     * Throws ResourceNotFoundException if workflow not found
      */
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateWorkflow(
             @PathVariable Long id,
-            @Valid @RequestBody Map<String, Object> request) throws Exception {
-        
+            @Valid @RequestBody Map<String, Object> request) {
+
         Workflow workflow = workflowRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Workflow", id));
 
@@ -108,8 +115,12 @@ public class WorkflowController {
             workflow.setDescription((String) request.get("description"));
         }
         if (request.containsKey("workflowData")) {
-            String workflowData = objectMapper.writeValueAsString(request.get("workflowData"));
-            workflow.setWorkflowData(workflowData);
+            try {
+                String workflowData = objectMapper.writeValueAsString(request.get("workflowData"));
+                workflow.setWorkflowData(workflowData);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Failed to serialize workflow data: " + e.getMessage(), e);
+            }
         }
 
         Workflow saved = workflowRepository.save(workflow);

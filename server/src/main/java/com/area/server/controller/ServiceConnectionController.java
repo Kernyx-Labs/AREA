@@ -1,6 +1,7 @@
 package com.area.server.controller;
 
 import com.area.server.controller.dto.CreateServiceConnectionRequest;
+import com.area.server.dto.response.ApiResponse;
 import com.area.server.model.ServiceConnection;
 import com.area.server.service.ServiceConnectionService;
 import com.area.server.service.TokenRefreshService;
@@ -49,44 +50,27 @@ public class ServiceConnectionController {
         return ResponseEntity.noContent().build();
     }
 
+    /**
+     * Manually refresh OAuth token for a service connection
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
+     * Throws ResourceNotFoundException if connection not found
+     * Throws ValidationException if service doesn't support token refresh
+     */
     @PostMapping("/{id}/refresh")
-    public ResponseEntity<Map<String, Object>> refreshToken(@PathVariable Long id) {
-        try {
-            ServiceConnection connection = serviceConnectionService.findById(id);
+    public ResponseEntity<ApiResponse<Map<String, Object>>> refreshToken(@PathVariable Long id) {
+        ServiceConnection connection = serviceConnectionService.findById(id);
 
-            if (connection.getType() != ServiceConnection.ServiceType.GMAIL) {
-                return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "error", "Only Gmail connections support token refresh"
-                ));
-            }
-
-            ServiceConnection refreshed = tokenRefreshService.refreshTokenIfNeeded(connection)
-                .blockOptional()
-                .orElseThrow(() -> new RuntimeException("Failed to refresh token"));
-
-            logger.info("Token refreshed successfully for connection {}", id);
-
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Token refreshed successfully",
-                "connection", refreshed
-            ));
-
-        } catch (IllegalStateException e) {
-            logger.error("Failed to refresh token for connection {}: {}", id, e.getMessage());
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", "Token refresh failed",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Unexpected error refreshing token for connection {}", id, e);
-            return ResponseEntity.status(500).body(Map.of(
-                "success", false,
-                "error", "Failed to refresh token",
-                "message", e.getMessage()
-            ));
+        if (connection.getType() != ServiceConnection.ServiceType.GMAIL) {
+            throw new IllegalArgumentException("Only Gmail connections support token refresh");
         }
+
+        ServiceConnection refreshed = tokenRefreshService.refreshTokenIfNeeded(connection)
+            .blockOptional()
+            .orElseThrow(() -> new RuntimeException("Failed to refresh token"));
+
+        logger.info("Token refreshed successfully for connection {}", id);
+
+        Map<String, Object> data = Map.of("connection", refreshed);
+        return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully", data));
     }
 }

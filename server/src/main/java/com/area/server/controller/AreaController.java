@@ -72,30 +72,25 @@ public class AreaController {
             .body(ApiResponse.success("AREA created successfully", response));
     }
 
+    /**
+     * List all AREAs (optionally filter by active status)
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
+     */
     @GetMapping
-    public ResponseEntity<Map<String, Object>> listAreas(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> listAreas(
             @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
-        try {
-            List<Area> areas = activeOnly ? areaService.listActiveAreas() : areaService.listAllAreas();
+        List<Area> areas = activeOnly ? areaService.listActiveAreas() : areaService.listAllAreas();
 
-            List<AreaResponse> areaResponses = areas.stream()
-                .map(this::mapToAreaResponse)
-                .collect(Collectors.toList());
+        List<AreaResponse> areaResponses = areas.stream()
+            .map(this::mapToAreaResponse)
+            .collect(Collectors.toList());
 
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "count", areaResponses.size(),
-                "areas", areaResponses
-            ));
+        Map<String, Object> data = Map.of(
+            "count", areaResponses.size(),
+            "areas", areaResponses
+        );
 
-        } catch (Exception e) {
-            logger.error("Error listing AREAs", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Failed to list AREAs",
-                "message", e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     /**
@@ -122,136 +117,90 @@ public class AreaController {
         return ResponseEntity.ok(ApiResponse.success("AREA deleted successfully"));
     }
 
+    /**
+     * Update AREA status (active/inactive)
+     * Throws ResourceNotFoundException if not found (handled by GlobalExceptionHandler)
+     */
     @PutMapping("/{id}/status")
-    public ResponseEntity<Map<String, Object>> updateAreaStatus(
+    public ResponseEntity<ApiResponse<AreaResponse>> updateAreaStatus(
             @PathVariable Long id,
             @Valid @RequestBody UpdateAreaStatusRequest request) {
-        try {
-            logger.info("Updating AREA {} status to: {}", id, request.getActive());
+        logger.info("Updating AREA {} status to: {}", id, request.getActive());
 
-            Area area = areaService.updateAreaStatus(id, request.getActive());
-            AreaResponse response = mapToAreaResponse(area);
+        Area area = areaService.updateAreaStatus(id, request.getActive());
+        AreaResponse response = mapToAreaResponse(area);
 
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "AREA status updated successfully",
-                "area", response
-            ));
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "AREA not found",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Error updating AREA {} status", id, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Failed to update AREA status",
-                "message", e.getMessage()
-            ));
-        }
+        return ResponseEntity.ok(ApiResponse.success("AREA status updated successfully", response));
     }
 
+    /**
+     * Get execution logs for an AREA with pagination
+     * Throws ResourceNotFoundException if not found (handled by GlobalExceptionHandler)
+     */
     @GetMapping("/{id}/logs")
-    public ResponseEntity<Map<String, Object>> getExecutionLogs(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getExecutionLogs(
             @PathVariable Long id,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "executedAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDirection) {
-        try {
-            // Validate and limit page size
-            if (size > 100) {
-                size = 100;
-            }
-            if (size < 1) {
-                size = 20;
-            }
 
-            Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC")
-                ? Sort.Direction.ASC
-                : Sort.Direction.DESC;
-
-            Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
-
-            Page<AreaExecutionLog> logsPage = areaService.getExecutionLogs(id, pageable);
-
-            List<ExecutionLogResponse> logResponses = logsPage.getContent().stream()
-                .map(this::mapToExecutionLogResponse)
-                .collect(Collectors.toList());
-
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("logs", logResponses);
-            response.put("pagination", Map.of(
-                "currentPage", logsPage.getNumber(),
-                "totalPages", logsPage.getTotalPages(),
-                "totalElements", logsPage.getTotalElements(),
-                "pageSize", logsPage.getSize(),
-                "hasNext", logsPage.hasNext(),
-                "hasPrevious", logsPage.hasPrevious()
-            ));
-
-            return ResponseEntity.ok(response);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "AREA not found",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Error getting execution logs for AREA {}", id, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Failed to get execution logs",
-                "message", e.getMessage()
-            ));
+        // Validate and limit page size
+        if (size > 100) {
+            size = 100;
         }
+        if (size < 1) {
+            size = 20;
+        }
+
+        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC")
+            ? Sort.Direction.ASC
+            : Sort.Direction.DESC;
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+
+        Page<AreaExecutionLog> logsPage = areaService.getExecutionLogs(id, pageable);
+
+        List<ExecutionLogResponse> logResponses = logsPage.getContent().stream()
+            .map(this::mapToExecutionLogResponse)
+            .collect(Collectors.toList());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("logs", logResponses);
+        data.put("pagination", Map.of(
+            "currentPage", logsPage.getNumber(),
+            "totalPages", logsPage.getTotalPages(),
+            "totalElements", logsPage.getTotalElements(),
+            "pageSize", logsPage.getSize(),
+            "hasNext", logsPage.hasNext(),
+            "hasPrevious", logsPage.hasPrevious()
+        ));
+
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
+    /**
+     * Get trigger state for an AREA
+     * Throws ResourceNotFoundException if not found (handled by GlobalExceptionHandler)
+     */
     @GetMapping("/{id}/state")
-    public ResponseEntity<Map<String, Object>> getTriggerState(@PathVariable Long id) {
-        try {
-            AreaTriggerState state = areaService.getTriggerState(id);
+    public ResponseEntity<ApiResponse<AreaResponse.TriggerStateDto>> getTriggerState(@PathVariable Long id) {
+        AreaTriggerState state = areaService.getTriggerState(id);
 
-            if (state == null) {
-                return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "No trigger state found (AREA has not been triggered yet)",
-                    "state", Map.of()
-                ));
-            }
-
-            AreaResponse.TriggerStateDto stateDto = new AreaResponse.TriggerStateDto();
-            stateDto.setLastUnreadCount(state.getLastUnreadCount());
-            stateDto.setLastProcessedMessageId(state.getLastProcessedMessageId());
-            stateDto.setLastCheckedAt(state.getLastCheckedAt());
-            stateDto.setLastTriggeredAt(state.getLastTriggeredAt());
-            stateDto.setConsecutiveFailures(state.getConsecutiveFailures());
-            stateDto.setLastErrorMessage(state.getLastErrorMessage());
-
-            return ResponseEntity.ok(Map.of(
-                "success", true,
-                "state", stateDto
-            ));
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                "success", false,
-                "error", "AREA not found",
-                "message", e.getMessage()
-            ));
-        } catch (Exception e) {
-            logger.error("Error getting trigger state for AREA {}", id, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "success", false,
-                "error", "Failed to get trigger state",
-                "message", e.getMessage()
-            ));
+        if (state == null) {
+            // Return success with null data and a message
+            return ResponseEntity.ok(ApiResponse.success("No trigger state found (AREA has not been triggered yet)", null));
         }
+
+        AreaResponse.TriggerStateDto stateDto = new AreaResponse.TriggerStateDto();
+        stateDto.setLastUnreadCount(state.getLastUnreadCount());
+        stateDto.setLastProcessedMessageId(state.getLastProcessedMessageId());
+        stateDto.setLastCheckedAt(state.getLastCheckedAt());
+        stateDto.setLastTriggeredAt(state.getLastTriggeredAt());
+        stateDto.setConsecutiveFailures(state.getConsecutiveFailures());
+        stateDto.setLastErrorMessage(state.getLastErrorMessage());
+
+        return ResponseEntity.ok(ApiResponse.success(stateDto));
     }
 
     private AreaResponse mapToAreaResponse(Area area) {
