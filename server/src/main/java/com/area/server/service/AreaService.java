@@ -1,5 +1,7 @@
 package com.area.server.service;
 
+import com.area.server.exception.ResourceNotFoundException;
+import com.area.server.exception.ValidationException;
 import com.area.server.model.Area;
 import com.area.server.model.AreaExecutionLog;
 import com.area.server.model.AreaTriggerState;
@@ -49,10 +51,10 @@ public class AreaService {
         ServiceConnection reactionConnection = connectionService.findById(reactionConnectionId);
 
         if (actionConnection.getType() != ServiceConnection.ServiceType.GMAIL) {
-            throw new IllegalArgumentException("Action connection must be of type GMAIL");
+            throw new ValidationException("actionConnection", "Action connection must be of type GMAIL");
         }
         if (reactionConnection.getType() != ServiceConnection.ServiceType.DISCORD) {
-            throw new IllegalArgumentException("Reaction connection must be of type DISCORD");
+            throw new ValidationException("reactionConnection", "Reaction connection must be of type DISCORD");
         }
 
         // Validate Discord webhook URL
@@ -97,7 +99,7 @@ public class AreaService {
 
     public Area findById(Long id) {
         return areaRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Area not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Area", id));
     }
 
     @Transactional

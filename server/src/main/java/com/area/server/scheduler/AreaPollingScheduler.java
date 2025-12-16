@@ -3,14 +3,12 @@ package com.area.server.scheduler;
 import com.area.server.dto.GmailMessage;
 import com.area.server.model.Area;
 import com.area.server.model.AreaExecutionLog;
-import com.area.server.model.AreaTriggerState;
-import com.area.server.model.ServiceConnection;
 import com.area.server.repository.AreaExecutionLogRepository;
 import com.area.server.repository.AreaRepository;
-import com.area.server.service.EnhancedDiscordService;
-import com.area.server.service.EnhancedGmailService;
-import com.area.server.service.TokenRefreshService;
 import com.area.server.service.TriggerStateService;
+import com.area.server.service.integration.executor.ActionExecutor;
+import com.area.server.service.integration.executor.ReactionExecutor;
+import com.area.server.service.integration.executor.TriggerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,24 +31,21 @@ public class AreaPollingScheduler {
     private static final Logger logger = LoggerFactory.getLogger(AreaPollingScheduler.class);
 
     private final AreaRepository areaRepository;
-    private final EnhancedGmailService gmailService;
-    private final EnhancedDiscordService discordService;
     private final TriggerStateService stateService;
-    private final TokenRefreshService tokenRefreshService;
     private final AreaExecutionLogRepository logRepository;
+    private final ActionExecutor gmailActionExecutor;
+    private final ReactionExecutor discordReactionExecutor;
 
     public AreaPollingScheduler(AreaRepository areaRepository,
-                                EnhancedGmailService gmailService,
-                                EnhancedDiscordService discordService,
                                 TriggerStateService stateService,
-                                TokenRefreshService tokenRefreshService,
-                                AreaExecutionLogRepository logRepository) {
+                                AreaExecutionLogRepository logRepository,
+                                ActionExecutor gmailActionExecutor,
+                                ReactionExecutor discordReactionExecutor) {
         this.areaRepository = areaRepository;
-        this.gmailService = gmailService;
-        this.discordService = discordService;
         this.stateService = stateService;
-        this.tokenRefreshService = tokenRefreshService;
         this.logRepository = logRepository;
+        this.gmailActionExecutor = gmailActionExecutor;
+        this.discordReactionExecutor = discordReactionExecutor;
     }
 
     @Scheduled(fixedDelayString = "${area.polling.interval:60000}",
@@ -107,29 +102,19 @@ public class AreaPollingScheduler {
             return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
         }
 
-        ServiceConnection actionConn = area.getActionConnection();
-
-        if (actionConn == null || actionConn.getType() != ServiceConnection.ServiceType.GMAIL) {
-            logger.error("Area {} has invalid action connection", area.getId());
-            return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.FAILURE));
-        }
-
-        return tokenRefreshService.refreshTokenIfNeeded(actionConn)
-            .flatMap(refreshedConn -> {
-                AreaTriggerState state = stateService.getOrCreateState(area);
-
-                return gmailService.fetchNewMessages(
-                    refreshedConn,
-                    area.getGmailConfig(),
-                    state.getLastProcessedMessageId()
-                );
-            })
-            .flatMap(newMessages -> {
-                if (newMessages.isEmpty()) {
+        // Use the executor framework instead of hardcoded Gmail/Discord logic
+        return gmailActionExecutor.getTriggerContext(area)
+            .flatMap(context -> {
+                // Check if action was triggered
+                if (!context.has("newMessages") || context.getInteger("messageCount") == null
+                    || context.getInteger("messageCount") == 0) {
                     stateService.updateCheckedTime(area);
                     logger.debug("No new messages for area {}", area.getId());
                     return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
                 }
+
+                @SuppressWarnings("unchecked")
+                List<GmailMessage> newMessages = (List<GmailMessage>) context.get("newMessages");
 
                 if (!stateService.shouldTrigger(area, newMessages)) {
                     stateService.updateCheckedTime(area);
@@ -138,18 +123,20 @@ public class AreaPollingScheduler {
                 }
 
                 GmailMessage latestMessage = newMessages.get(0);
+                Integer messageCount = context.getInteger("messageCount");
                 logger.info("Area {} triggered with {} new message(s). Latest: '{}'",
-                           area.getId(), newMessages.size(), latestMessage.getSubject());
+                           area.getId(), messageCount, latestMessage.getSubject());
 
-                return discordService.sendRichEmbed(area.getDiscordConfig(), latestMessage)
+                // Execute the reaction using the executor framework
+                return discordReactionExecutor.execute(area, context)
                     .then(Mono.fromRunnable(() -> {
-                        stateService.updateStateAfterSuccess(area, latestMessage, newMessages.size());
+                        stateService.updateStateAfterSuccess(area, latestMessage, messageCount);
 
                         long execTime = System.currentTimeMillis() - startTime;
                         String logMessage = String.format("Sent notification for: %s (from: %s)",
                                                          latestMessage.getSubject(), latestMessage.getFrom());
                         logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
-                                   newMessages.size(), logMessage, execTime);
+                                   messageCount, logMessage, execTime);
 
                         logger.info("Successfully processed area {} in {}ms", area.getId(), execTime);
                     }))

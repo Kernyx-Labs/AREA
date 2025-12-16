@@ -23,15 +23,15 @@ public class WorkflowExecutionService {
     private final AreaRepository areaRepository;
     private final WorkflowRepository workflowRepository;
     private final AreaExecutionLogRepository executionLogRepository;
-    private final EnhancedGmailService gmailService;
-    private final EnhancedDiscordService discordService;
+    private final GmailService gmailService;
+    private final DiscordService discordService;
 
     public WorkflowExecutionService(
             AreaRepository areaRepository,
             WorkflowRepository workflowRepository,
             AreaExecutionLogRepository executionLogRepository,
-            EnhancedGmailService gmailService,
-            EnhancedDiscordService discordService) {
+            GmailService gmailService,
+            DiscordService discordService) {
         this.areaRepository = areaRepository;
         this.workflowRepository = workflowRepository;
         this.executionLogRepository = executionLogRepository;
