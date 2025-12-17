@@ -1,7 +1,7 @@
 <template>
   <div class="sidebar">
     <div class="logo">
-      <ZapIcon size="22" :color="accent" />
+      <img src="/AREA.png" alt="AREA logo" class="sidebar-logo" />
     </div>
     <nav class="nav">
       <button

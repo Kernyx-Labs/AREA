@@ -10,7 +10,8 @@
   gap: 1rem;
   background: var(--color-noble-black);
 }
-.logo { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: var(--color-accent); }
+.logo { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: transparent; padding: 2px; }
+.sidebar-logo { width: 100%; height: 100%; object-fit: contain; border-radius: 10px; }
 .nav { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
 .nav-btn { width: 40px; height: 40px; border-radius: 12px; background: transparent; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,.55); cursor: pointer; border: none; }
 .nav-btn.active { background: var(--color-accent-soft); color: var(--color-accent); }
@@ -19,4 +20,3 @@
 .theme-toggle:hover { background: var(--color-accent-soft); color: var(--color-accent); }
 .logout { width: 40px; height: 40px; border-radius: 12px; background: transparent; border: none; color: var(--color-danger); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .logout:hover { background: rgba(255,95,86,0.2); }
-

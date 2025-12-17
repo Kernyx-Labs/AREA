@@ -1,8 +1,11 @@
 <template>
   <nav class="nav-bar" aria-label="Main navigation">
-    <div class="nav-brand">AREA Dashboard</div>
-    <ul class="nav-items" role="menubar">
-      <li v-for="item in items" :key="item.label" role="none">
+    <div class="nav-brand">
+      <img src="/AREA.png" alt="AREA logo" class="nav-logo" />
+      <span class="nav-title">AREA</span>
+    </div>
+    <ul class="nav-items">
+      <li v-for="item in items" :key="item.label">
         <button
           class="nav-btn"
           role="menuitem"
