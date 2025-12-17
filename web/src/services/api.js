@@ -3,6 +3,32 @@
 // When running in dev mode, vite.config.js should have proxy configured
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+/**
+ * Unwraps the API response from backend.
+ * Handles both the new ApiResponse<T> wrapper format and legacy formats.
+ * Throws error if response indicates failure.
+ * @param {Object} response - The API response object
+ * @returns {*} The unwrapped data
+ * @throws {Error} If response.success is false
+ */
+function unwrapApiResponse(response) {
+  // Handle error responses
+  if (response.success === false) {
+    // Backend error - throw with detailed message
+    throw new Error(response.message || response.error || 'API request failed');
+  }
+
+  // Handle new ApiResponse<T> format: { success: true, data: {...} }
+  if (response.data !== undefined) {
+    return response.data;
+  }
+
+  // Handle legacy format where data is at root level: { success: true, areas: [...], stats: {...}, etc }
+  // Remove success field and return the rest
+  const { success, ...data } = response;
+  return data;
+}
+
 export const api = {
   // Get available services from about.json
   async getAvailableServices() {
@@ -16,14 +42,25 @@ export const api = {
   async getConnectedServices() {
     const response = await fetch(`${API_URL}/api/service-connections`);
     if (!response.ok) throw new Error('Failed to fetch connected services');
-    return await response.json();
+    const result = await response.json();
+
+    // Handle plain array response (legacy format)
+    if (Array.isArray(result)) {
+      return result;
+    }
+
+    // Handle wrapped response
+    const data = unwrapApiResponse(result);
+    return Array.isArray(data) ? data : (data.connections || []);
   },
 
   // Get Gmail OAuth URL
   async getGmailAuthUrl() {
     const response = await fetch(`${API_URL}/api/services/gmail/auth-url`);
     if (!response.ok) throw new Error('Failed to get Gmail auth URL');
-    return await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data; // { authUrl: "...", state: "..." }
   },
 
   // Disconnect service
@@ -40,10 +77,12 @@ export const api = {
       method: 'POST',
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || 'Failed to refresh token');
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
     }
-    return await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
   },
 
   // Discord connection methods
@@ -56,10 +95,12 @@ export const api = {
       body: JSON.stringify({ botToken, channelId }),
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || 'Failed to connect Discord');
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
     }
-    return await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
   },
 
   async testDiscordConnection(botToken, channelId) {
@@ -71,17 +112,20 @@ export const api = {
       body: JSON.stringify({ botToken, channelId }),
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || 'Failed to test Discord connection');
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
     }
-    return await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
   },
 
   // Dashboard statistics
   async getDashboardStats() {
     const response = await fetch(`${API_URL}/api/dashboard/stats`);
     if (!response.ok) throw new Error('Failed to fetch dashboard statistics');
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.stats;
   },
 
@@ -90,7 +134,8 @@ export const api = {
     const url = activeOnly ? `${API_URL}/api/areas?activeOnly=true` : `${API_URL}/api/areas`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch areas');
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.areas || [];
   },
 
@@ -104,11 +149,12 @@ export const api = {
       body: JSON.stringify(areaData),
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || errorData.error || 'Failed to create area');
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
     }
-    const data = await response.json();
-    return data.area;
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data; // Area object is directly in data
   },
 
   // Delete an area
@@ -124,9 +170,13 @@ export const api = {
     const response = await fetch(`${API_URL}/api/areas/${id}/toggle`, {
       method: 'PATCH',
     });
-    if (!response.ok) throw new Error('Failed to toggle area status');
-    const data = await response.json();
-    return data.area;
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data; // Area object
   },
 
   // Workflow methods
@@ -134,14 +184,16 @@ export const api = {
     const url = activeOnly ? `${API_URL}/api/workflows?activeOnly=true` : `${API_URL}/api/workflows`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch workflows');
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.workflows || [];
   },
 
   async getWorkflow(id) {
     const response = await fetch(`${API_URL}/api/workflows/${id}`);
     if (!response.ok) throw new Error('Failed to fetch workflow');
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.workflow;
   },
 
@@ -154,17 +206,19 @@ export const api = {
       body: JSON.stringify(workflowData),
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to create workflow');
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
     }
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.workflow;
   },
 
   async getWorkflowStats(id) {
     const response = await fetch(`${API_URL}/api/workflows/${id}/stats`);
     if (!response.ok) throw new Error('Failed to fetch workflow stats');
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.stats;
   },
 
@@ -177,10 +231,11 @@ export const api = {
       body: JSON.stringify(workflowData),
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update workflow');
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
     }
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.workflow;
   },
 
@@ -192,8 +247,12 @@ export const api = {
       },
       body: JSON.stringify({ active }),
     });
-    if (!response.ok) throw new Error('Failed to update workflow status');
-    const data = await response.json();
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data.workflow;
   },
 
@@ -209,16 +268,19 @@ export const api = {
       method: 'POST',
     });
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to execute workflow');
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
     }
-    return await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
   },
 
   async getAvailableNodes() {
     const response = await fetch(`${API_URL}/api/workflows/available-nodes`);
     if (!response.ok) throw new Error('Failed to fetch available nodes');
-    const data = await response.json();
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
     return data;
   },
 };

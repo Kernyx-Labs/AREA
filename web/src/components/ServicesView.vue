@@ -114,18 +114,17 @@ async function loadServices() {
     const connectedServices = await api.getConnectedServices();
 
     // Create a map of connected services by type (normalize to lowercase)
+    // Note: connectedServices is already unwrapped by api.js and is an array
     const connectedMap = {};
-    if (Array.isArray(connectedServices)) {
-      connectedServices.forEach(conn => {
-        // Backend returns type as uppercase (GMAIL, DISCORD), normalize to lowercase
-        const normalizedType = conn.type.toLowerCase();
-        connectedMap[normalizedType] = {
-          id: conn.id,
-          expiresAt: conn.tokenExpiresAt,
-          isExpired: conn.tokenExpiresAt ? new Date(conn.tokenExpiresAt) < new Date() : false
-        };
-      });
-    }
+    connectedServices.forEach(conn => {
+      // Backend returns type as uppercase (GMAIL, DISCORD), normalize to lowercase
+      const normalizedType = conn.type.toLowerCase();
+      connectedMap[normalizedType] = {
+        id: conn.id,
+        expiresAt: conn.tokenExpiresAt,
+        isExpired: conn.tokenExpiresAt ? new Date(conn.tokenExpiresAt) < new Date() : false
+      };
+    });
 
     // Build display list - only show services from backend
     displayServices.value = availableServices.map(service => {
@@ -228,14 +227,11 @@ async function deleteService(connectionId, serviceName) {
 async function refreshToken(connectionId, serviceName) {
   try {
     refreshing.value = serviceName;
-    const result = await api.refreshServiceToken(connectionId);
+    // api.refreshServiceToken now returns unwrapped data directly
+    await api.refreshServiceToken(connectionId);
 
-    if (result.success) {
-      alert('Token refreshed successfully!');
-      await loadServices(); // Reload services to update expiry
-    } else {
-      alert(result.message || 'Failed to refresh token');
-    }
+    alert('Token refreshed successfully!');
+    await loadServices(); // Reload services to update expiry
   } catch (err) {
     console.error(`Error refreshing token for ${serviceName}:`, err);
     alert(`Failed to refresh token: ${err.message}`);
