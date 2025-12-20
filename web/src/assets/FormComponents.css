@@ -1,0 +1,135 @@
+/* ============================================
+   FORM COMPONENTS - BLACK THEME
+   ============================================ */
+
+/* Field container */
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  font-size: 0.9375rem;
+  color: var(--color-text-primary);
+}
+
+.ui-field__label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Input/Select control container */
+.ui-field__control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-md);
+  background: var(--color-surface);
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-subtle);
+  position: relative;
+}
+
+.ui-field__control::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: var(--radius-md);
+  padding: 1px;
+  background: transparent;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.ui-field__control:hover {
+  border-color: var(--color-border-bright);
+  box-shadow: var(--shadow-sm);
+}
+
+.ui-field__control:focus-within {
+  border-color: var(--color-focus);
+  box-shadow: 0 0 0 3px var(--color-info-bg), var(--shadow-sm);
+}
+
+.ui-field__control:focus-within::before {
+  background: linear-gradient(135deg, var(--color-accent-blue), var(--color-accent-purple));
+  opacity: 0.3;
+}
+
+.ui-field__control.has-error {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px var(--color-danger-bg);
+}
+
+.ui-field__control.has-prefix {
+  padding-left: var(--space-sm);
+}
+
+.ui-field__control.has-suffix {
+  padding-right: var(--space-sm);
+}
+
+/* Input element */
+.ui-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  padding: var(--space-sm) 0;
+}
+
+.ui-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.ui-input:disabled {
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+/* Hint and error messages */
+.ui-field__hint {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.ui-field__error {
+  color: var(--color-danger);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.ui-field__error::before {
+  content: '⚠';
+  display: inline-block;
+}
+
+/* Select dropdown styling */
+.ui-input[type="select"],
+select.ui-input {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23d0d0d0' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  padding-right: 2rem;
+}
+
+select.ui-input option {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  padding: var(--space-sm);
+}
