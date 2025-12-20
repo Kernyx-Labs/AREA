@@ -15,43 +15,34 @@
         <component :is="item.icon" size="20" />
       </button>
     </nav>
-    <button class="theme-toggle" @click="toggleTheme" :title="isDark ? 'Passer clair' : 'Passer sombre'">
-      <span v-if="isDark">🌞</span>
-      <span v-else>🌙</span>
-    </button>
-    <button class="logout" title="logout">
+    <button class="logout" title="logout" @click="handleLogout">
       <LogOutIcon size="20" />
     </button>
   </div>
 </template>
 
 <script setup>
-import { ZapIcon, HomeIcon, SettingsIcon, UserIcon, LogOutIcon } from 'lucide-vue-next'
-import { onMounted, ref, computed } from 'vue'
+import { ZapIcon, HomeIcon, SettingsIcon, UserIcon, LogOutIcon, FileTextIcon } from 'lucide-vue-next'
+import { computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { api } from '../services/api.js'
+
+const router = useRouter()
 const props = defineProps({ currentPage: [String, Object] })
 defineEmits(['navigate'])
 const currentPage = computed(() => typeof props.currentPage === 'string' ? props.currentPage : props.currentPage?.value)
-const accent = '#FFB162'
 const items = [
   { id: 'dashboard', icon: HomeIcon },
   { id: 'editor', icon: ZapIcon },
   { id: 'services', icon: SettingsIcon },
+  { id: 'logs', icon: FileTextIcon },
   { id: 'profile', icon: UserIcon }
 ]
-const stored = typeof window !== 'undefined' ? localStorage.getItem('theme') : null
-const isDark = ref(stored ? stored === 'dark' : true)
-function syncTheme() {
-  const root = document.documentElement
-  if (isDark.value) {
-    root.setAttribute('data-theme','dark')
-    localStorage.setItem('theme','dark')
-  } else {
-    root.removeAttribute('data-theme')
-    localStorage.setItem('theme','light')
-  }
+
+async function handleLogout() {
+  await api.logout()
+  router.push({ name: 'login' })
 }
-function toggleTheme() { isDark.value = !isDark.value; syncTheme() }
-onMounted(() => { syncTheme() })
 </script>
 
 <style scoped src="../assets/Sidebar.css"></style>
