@@ -283,4 +283,59 @@ export const api = {
     const data = unwrapApiResponse(result);
     return data;
   },
+
+  // Logs methods
+  async getLogs(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    const url = queryParams ? `${API_URL}/api/logs?${queryParams}` : `${API_URL}/api/logs`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch logs');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data.logs || [];
+  },
+
+  // Authentication methods
+  async login(credentials) {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    // Store token if provided
+    if (data.token) {
+      localStorage.setItem('authToken', data.token);
+    }
+    return data;
+  },
+
+  async register(userData) {
+    const response = await fetch(`${API_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    });
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
+  },
+
+  async logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('rememberMe');
+  },
 };
