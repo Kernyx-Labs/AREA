@@ -300,7 +300,8 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch logs');
     const result = await response.json();
     const data = unwrapApiResponse(result);
-    return data.logs || [];
+    // Return the full data object with logs, total, page, pageSize
+    return data;
   },
 
   // Authentication methods

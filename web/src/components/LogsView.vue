@@ -3,50 +3,75 @@
     <!-- Header Section -->
     <div class="logs-header">
       <div>
-        <h1>System Logs</h1>
-        <p>Monitor your automation executions and system events</p>
+        <h1>Execution Logs</h1>
+        <p>Monitor your AREA workflow executions and results</p>
       </div>
       <div class="header-actions">
         <button class="filter-btn" @click="toggleFilters">
           <FilterIcon size="18" />
           Filters
         </button>
-        <button class="refresh-btn" @click="refreshLogs">
-          <RefreshCwIcon size="18" />
+        <button class="refresh-btn" @click="refreshLogs" :disabled="loading">
+          <RefreshCwIcon size="18" :class="{ spinning: loading }" />
           Refresh
         </button>
-        <button class="clear-btn" @click="clearLogs" :disabled="logs.length === 0">
-          <TrashIcon size="18" />
-          Clear All
+        <button
+          class="auto-refresh-btn"
+          :class="{ active: autoRefresh }"
+          @click="toggleAutoRefresh"
+        >
+          <ClockIcon size="18" />
+          Auto-refresh
         </button>
       </div>
     </div>
 
     <!-- Filter Section -->
     <div class="filters-section" v-if="showFilters">
-      <div class="filter-group">
-        <label>Log Level</label>
-        <div class="filter-pills">
-          <button
-            v-for="level in logLevels"
-            :key="level"
-            class="filter-pill"
-            :class="{ active: activeFilters.includes(level) }"
-            @click="toggleFilter(level)"
-          >
-            {{ level }}
-          </button>
+      <div class="filter-row">
+        <div class="filter-group">
+          <label>Status</label>
+          <div class="filter-pills">
+            <button
+              v-for="status in statusOptions"
+              :key="status.value"
+              class="filter-pill"
+              :class="{ active: selectedStatus === status.value }"
+              @click="setStatusFilter(status.value)"
+            >
+              {{ status.label }}
+            </button>
+          </div>
         </div>
-      </div>
-      <div class="filter-group">
-        <label>Time Range</label>
-        <select v-model="timeRange" class="time-range-select">
-          <option value="1h">Last Hour</option>
-          <option value="24h">Last 24 Hours</option>
-          <option value="7d">Last 7 Days</option>
-          <option value="30d">Last 30 Days</option>
-          <option value="all">All Time</option>
-        </select>
+
+        <div class="filter-group">
+          <label>Workflow</label>
+          <UiSelect
+            v-model="selectedAreaId"
+            :options="areaOptions"
+            placeholder="All Workflows"
+            @update:modelValue="applyFilters"
+          />
+        </div>
+
+        <div class="filter-group">
+          <label>Date Range</label>
+          <div class="date-range-inputs">
+            <input
+              type="date"
+              v-model="fromDate"
+              class="date-input"
+              @change="applyFilters"
+            />
+            <span class="date-separator">to</span>
+            <input
+              type="date"
+              v-model="toDate"
+              class="date-input"
+              @change="applyFilters"
+            />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -66,7 +91,7 @@
           <XCircleIcon size="24" />
         </div>
         <div class="stat-details">
-          <div class="stat-value">{{ stats.errorCount }}</div>
+          <div class="stat-value">{{ stats.failureCount }}</div>
           <div class="stat-label">Failed</div>
         </div>
       </div>
@@ -75,8 +100,8 @@
           <AlertTriangleIcon size="24" />
         </div>
         <div class="stat-details">
-          <div class="stat-value">{{ stats.warningCount }}</div>
-          <div class="stat-label">Warnings</div>
+          <div class="stat-value">{{ stats.errorCount }}</div>
+          <div class="stat-label">Errors</div>
         </div>
       </div>
       <div class="stat-item">
@@ -84,249 +109,367 @@
           <InfoIcon size="24" />
         </div>
         <div class="stat-details">
-          <div class="stat-value">{{ stats.infoCount }}</div>
-          <div class="stat-label">Info</div>
+          <div class="stat-value">{{ totalLogs }}</div>
+          <div class="stat-label">Total Logs</div>
         </div>
       </div>
+    </div>
+
+    <!-- Error State -->
+    <div v-if="error" class="error-banner">
+      <AlertTriangleIcon size="20" />
+      <span>{{ error }}</span>
+      <button class="retry-btn" @click="loadLogs">Retry</button>
     </div>
 
     <!-- Logs List -->
     <div class="logs-container">
-      <div v-if="loading" class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading logs...</p>
+      <div v-if="loading && logs.length === 0" class="loading-state">
+        <UiSpinner size="lg" />
+        <p>Loading execution logs...</p>
       </div>
 
-      <div v-else-if="filteredLogs.length === 0" class="empty-state">
+      <div v-else-if="logs.length === 0 && !error" class="empty-state">
         <FileTextIcon size="64" />
-        <h3>No logs found</h3>
-        <p>There are no logs matching your current filters</p>
+        <h3>No execution logs found</h3>
+        <p v-if="hasActiveFilters">Try adjusting your filters to see more results</p>
+        <p v-else>Your workflow executions will appear here once they run</p>
       </div>
 
       <div v-else class="logs-list">
         <div
-          v-for="log in filteredLogs"
+          v-for="log in logs"
           :key="log.id"
           class="log-entry"
-          :class="['level-' + log.level]"
+          :class="['status-' + log.status.toLowerCase()]"
         >
-          <div class="log-icon">
-            <CheckCircleIcon v-if="log.level === 'success'" size="20" />
-            <XCircleIcon v-else-if="log.level === 'error'" size="20" />
-            <AlertTriangleIcon v-else-if="log.level === 'warning'" size="20" />
-            <InfoIcon v-else size="20" />
-          </div>
-          <div class="log-content">
-            <div class="log-header">
-              <span class="log-level-badge">{{ log.level }}</span>
-              <span class="log-time">{{ formatTimestamp(log.timestamp) }}</span>
+          <div class="log-main">
+            <div class="log-icon">
+              <CheckCircleIcon v-if="log.status === 'SUCCESS'" size="20" />
+              <XCircleIcon v-else-if="log.status === 'FAILURE'" size="20" />
+              <AlertTriangleIcon v-else size="20" />
             </div>
-            <div class="log-message">{{ log.message }}</div>
-            <div v-if="log.details" class="log-details">
-              <div class="details-header" @click="toggleDetails(log.id)">
-                <ChevronRightIcon :class="{ expanded: expandedLogs.includes(log.id) }" size="16" />
-                <span>Details</span>
+
+            <div class="log-content">
+              <div class="log-header-row">
+                <div class="log-title">
+                  <h4>{{ log.areaName }}</h4>
+                  <UiBadge :variant="getStatusVariant(log.status)">
+                    {{ log.status }}
+                  </UiBadge>
+                </div>
+                <div class="log-meta">
+                  <span class="log-time">{{ formatTimestamp(log.executedAt) }}</span>
+                  <span class="log-duration" v-if="log.executionTimeMs">
+                    {{ formatDuration(log.executionTimeMs) }}
+                  </span>
+                </div>
               </div>
-              <div v-if="expandedLogs.includes(log.id)" class="details-content">
-                <pre>{{ JSON.stringify(log.details, null, 2) }}</pre>
+
+              <div v-if="log.errorMessage" class="log-error-msg">
+                <AlertTriangleIcon size="16" />
+                <span>{{ log.errorMessage }}</span>
               </div>
-            </div>
-            <div v-if="log.source" class="log-source">
-              Source: <strong>{{ log.source }}</strong>
+
+              <div class="log-summary" v-if="!expandedLogs.includes(log.id)">
+                <span v-if="log.unreadCount !== null && log.unreadCount !== undefined">
+                  {{ log.unreadCount }} unread email{{ log.unreadCount !== 1 ? 's' : '' }}
+                </span>
+                <span v-if="log.messageSent" class="message-sent">
+                  <CheckCircleIcon size="14" />
+                  Message sent
+                </span>
+              </div>
+
+              <!-- Expandable Details -->
+              <div class="log-details">
+                <button
+                  class="details-toggle"
+                  @click="toggleDetails(log.id)"
+                  :aria-expanded="expandedLogs.includes(log.id)"
+                >
+                  <ChevronRightIcon
+                    :class="{ expanded: expandedLogs.includes(log.id) }"
+                    size="16"
+                  />
+                  <span>{{ expandedLogs.includes(log.id) ? 'Hide' : 'Show' }} Details</span>
+                </button>
+
+                <div v-if="expandedLogs.includes(log.id)" class="details-content">
+                  <div class="details-section" v-if="log.triggerData">
+                    <h5>Trigger Data</h5>
+                    <div class="details-grid">
+                      <div
+                        v-for="(value, key) in log.triggerData"
+                        :key="key"
+                        class="detail-item"
+                      >
+                        <span class="detail-key">{{ formatKey(key) }}:</span>
+                        <span class="detail-value">{{ formatValue(value) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="details-section" v-if="log.reactionData">
+                    <h5>Reaction Data</h5>
+                    <div class="details-grid">
+                      <div
+                        v-for="(value, key) in log.reactionData"
+                        :key="key"
+                        class="detail-item"
+                      >
+                        <span class="detail-key">{{ formatKey(key) }}:</span>
+                        <span class="detail-value">{{ formatValue(value) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="details-section">
+                    <h5>Execution Info</h5>
+                    <div class="details-grid">
+                      <div class="detail-item">
+                        <span class="detail-key">Workflow ID:</span>
+                        <span class="detail-value">{{ log.areaId }}</span>
+                      </div>
+                      <div class="detail-item">
+                        <span class="detail-key">Executed At:</span>
+                        <span class="detail-value">{{ new Date(log.executedAt).toLocaleString() }}</span>
+                      </div>
+                      <div class="detail-item" v-if="log.executionTimeMs">
+                        <span class="detail-key">Duration:</span>
+                        <span class="detail-value">{{ log.executionTimeMs }}ms</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Pagination -->
-    <div class="pagination" v-if="totalPages > 1">
-      <button
-        class="page-btn"
-        :disabled="currentPage === 1"
-        @click="goToPage(currentPage - 1)"
-      >
-        <ChevronLeftIcon size="18" />
-        Previous
-      </button>
-      <div class="page-numbers">
-        <button
-          v-for="page in visiblePages"
-          :key="page"
-          class="page-number"
-          :class="{ active: page === currentPage }"
-          @click="goToPage(page)"
-        >
-          {{ page }}
-        </button>
+        <!-- Load More Button -->
+        <div v-if="hasMoreLogs" class="load-more-section">
+          <button
+            class="load-more-btn"
+            @click="loadMoreLogs"
+            :disabled="loadingMore"
+          >
+            <UiSpinner v-if="loadingMore" size="sm" />
+            <span v-else>Load More Logs</span>
+          </button>
+          <p class="logs-count">
+            Showing {{ logs.length }} of {{ totalLogs }} logs
+          </p>
+        </div>
       </div>
-      <button
-        class="page-btn"
-        :disabled="currentPage === totalPages"
-        @click="goToPage(currentPage + 1)"
-      >
-        Next
-        <ChevronRightIcon size="18" />
-      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import {
   FileTextIcon,
   FilterIcon,
   RefreshCwIcon,
-  TrashIcon,
+  ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
   AlertTriangleIcon,
   InfoIcon,
-  ChevronRightIcon,
-  ChevronLeftIcon
+  ChevronRightIcon
 } from 'lucide-vue-next';
 import { api } from '../services/api.js';
+import UiBadge from './ui/Badge.vue';
+import UiSelect from './ui/Select.vue';
+import UiSpinner from './ui/Spinner.vue';
 
 // State
 const logs = ref([]);
+const allLogs = ref([]); // Store all fetched logs for stats
+const areas = ref([]);
 const loading = ref(false);
+const loadingMore = ref(false);
+const error = ref('');
 const showFilters = ref(false);
-const activeFilters = ref(['success', 'error', 'warning', 'info']);
-const timeRange = ref('24h');
 const expandedLogs = ref([]);
-const currentPage = ref(1);
-const logsPerPage = 20;
+const autoRefresh = ref(false);
+const autoRefreshInterval = ref(null);
 
-const logLevels = ['success', 'error', 'warning', 'info'];
+// Filter state
+const selectedStatus = ref('ALL');
+const selectedAreaId = ref('');
+const fromDate = ref('');
+const toDate = ref('');
+
+// Pagination state
+const currentOffset = ref(0);
+const logsPerPage = 50;
+const totalLogs = ref(0);
+
+// Status options
+const statusOptions = [
+  { value: 'ALL', label: 'All' },
+  { value: 'SUCCESS', label: 'Success' },
+  { value: 'FAILURE', label: 'Failure' },
+  { value: 'ERROR', label: 'Error' }
+];
 
 // Computed
+const areaOptions = computed(() => {
+  const options = [{ value: '', label: 'All Workflows' }];
+  areas.value.forEach(area => {
+    options.push({
+      value: String(area.id),
+      label: area.name
+    });
+  });
+  return options;
+});
+
 const stats = computed(() => {
   return {
-    successCount: logs.value.filter(l => l.level === 'success').length,
-    errorCount: logs.value.filter(l => l.level === 'error').length,
-    warningCount: logs.value.filter(l => l.level === 'warning').length,
-    infoCount: logs.value.filter(l => l.level === 'info').length
+    successCount: allLogs.value.filter(l => l.status === 'SUCCESS').length,
+    failureCount: allLogs.value.filter(l => l.status === 'FAILURE').length,
+    errorCount: allLogs.value.filter(l => l.status === 'ERROR').length
   };
 });
 
-const filteredLogs = computed(() => {
-  let result = logs.value.filter(log => activeFilters.value.includes(log.level));
-
-  // Apply time range filter
-  if (timeRange.value !== 'all') {
-    const now = Date.now();
-    const ranges = {
-      '1h': 60 * 60 * 1000,
-      '24h': 24 * 60 * 60 * 1000,
-      '7d': 7 * 24 * 60 * 60 * 1000,
-      '30d': 30 * 24 * 60 * 60 * 1000
-    };
-    const cutoff = now - ranges[timeRange.value];
-    result = result.filter(log => new Date(log.timestamp).getTime() >= cutoff);
-  }
-
-  // Pagination
-  const start = (currentPage.value - 1) * logsPerPage;
-  const end = start + logsPerPage;
-  return result.slice(start, end);
+const hasMoreLogs = computed(() => {
+  return logs.value.length < totalLogs.value;
 });
 
-const totalPages = computed(() => {
-  const allFiltered = logs.value.filter(log => activeFilters.value.includes(log.level));
-  return Math.ceil(allFiltered.length / logsPerPage);
-});
-
-const visiblePages = computed(() => {
-  const pages = [];
-  const maxVisible = 5;
-  let start = Math.max(1, currentPage.value - Math.floor(maxVisible / 2));
-  let end = Math.min(totalPages.value, start + maxVisible - 1);
-
-  if (end - start < maxVisible - 1) {
-    start = Math.max(1, end - maxVisible + 1);
-  }
-
-  for (let i = start; i <= end; i++) {
-    pages.push(i);
-  }
-  return pages;
+const hasActiveFilters = computed(() => {
+  return selectedStatus.value !== 'ALL' ||
+         selectedAreaId.value !== '' ||
+         fromDate.value !== '' ||
+         toDate.value !== '';
 });
 
 // Methods
-async function loadLogs() {
-  loading.value = true;
+async function loadAreas() {
   try {
-    // Try to fetch logs from API
-    const response = await api.getLogs();
-    logs.value = response;
-  } catch (error) {
-    console.error('Failed to load logs:', error);
-    // Generate mock logs for demonstration
-    logs.value = generateMockLogs();
-  } finally {
-    loading.value = false;
+    const response = await api.getAreas();
+    areas.value = response || [];
+  } catch (err) {
+    console.error('Failed to load areas:', err);
   }
 }
 
-function generateMockLogs() {
-  const mockLogs = [];
-  const levels = ['success', 'error', 'warning', 'info'];
-  const sources = ['Gmail Service', 'Discord Service', 'Workflow Engine', 'API Gateway', 'Database'];
-  const messages = {
-    success: [
-      'Workflow executed successfully',
-      'Service connection established',
-      'Email processed and forwarded',
-      'Discord message sent successfully',
-      'Automation triggered successfully'
-    ],
-    error: [
-      'Failed to connect to service',
-      'Authentication failed',
-      'Workflow execution failed',
-      'Rate limit exceeded',
-      'Database connection error'
-    ],
-    warning: [
-      'Service response delayed',
-      'Approaching rate limit',
-      'Configuration missing optional field',
-      'Retry attempt scheduled',
-      'Cache miss detected'
-    ],
-    info: [
-      'Workflow started',
-      'Service health check passed',
-      'Configuration updated',
-      'New service connected',
-      'User logged in'
-    ]
-  };
-
-  for (let i = 0; i < 100; i++) {
-    const level = levels[Math.floor(Math.random() * levels.length)];
-    const source = sources[Math.floor(Math.random() * sources.length)];
-    const messageList = messages[level];
-    const message = messageList[Math.floor(Math.random() * messageList.length)];
-
-    const timestamp = new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000);
-
-    mockLogs.push({
-      id: `log-${i}`,
-      level,
-      message,
-      source,
-      timestamp: timestamp.toISOString(),
-      details: Math.random() > 0.7 ? {
-        executionTime: Math.floor(Math.random() * 5000) + 'ms',
-        userId: 'user-' + Math.floor(Math.random() * 100),
-        workflowId: 'workflow-' + Math.floor(Math.random() * 50)
-      } : null
-    });
+async function loadLogs(append = false) {
+  if (append) {
+    loadingMore.value = true;
+  } else {
+    loading.value = true;
+    currentOffset.value = 0;
   }
 
-  return mockLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  error.value = '';
+
+  try {
+    const filters = buildFilters();
+    const response = await api.getLogs(filters);
+
+    // API returns { logs: [...], total: number, page: number, pageSize: number }
+    // But unwrapApiResponse extracts just the data object
+    const fetchedLogs = Array.isArray(response) ? response : (response.logs || []);
+    const total = response.total || fetchedLogs.length;
+
+    if (append) {
+      logs.value = [...logs.value, ...fetchedLogs];
+    } else {
+      logs.value = fetchedLogs;
+      allLogs.value = fetchedLogs; // Store for stats
+    }
+
+    totalLogs.value = total;
+  } catch (err) {
+    console.error('Failed to load logs:', err);
+    error.value = err.message || 'Failed to load execution logs. Please try again.';
+    if (!append) {
+      logs.value = [];
+      totalLogs.value = 0;
+    }
+  } finally {
+    loading.value = false;
+    loadingMore.value = false;
+  }
+}
+
+function buildFilters() {
+  const filters = {
+    limit: logsPerPage,
+    offset: currentOffset.value
+  };
+
+  if (selectedStatus.value && selectedStatus.value !== 'ALL') {
+    filters.status = selectedStatus.value;
+  }
+
+  if (selectedAreaId.value) {
+    filters.areaId = selectedAreaId.value;
+  }
+
+  if (fromDate.value) {
+    // Convert to ISO format
+    filters.fromDate = new Date(fromDate.value).toISOString();
+  }
+
+  if (toDate.value) {
+    // Set to end of day
+    const date = new Date(toDate.value);
+    date.setHours(23, 59, 59, 999);
+    filters.toDate = date.toISOString();
+  }
+
+  return filters;
+}
+
+function applyFilters() {
+  loadLogs(false);
+}
+
+function setStatusFilter(status) {
+  selectedStatus.value = status;
+  applyFilters();
+}
+
+async function loadMoreLogs() {
+  currentOffset.value += logsPerPage;
+  await loadLogs(true);
+}
+
+function toggleFilters() {
+  showFilters.value = !showFilters.value;
+}
+
+function toggleDetails(logId) {
+  const index = expandedLogs.value.indexOf(logId);
+  if (index > -1) {
+    expandedLogs.value.splice(index, 1);
+  } else {
+    expandedLogs.value.push(logId);
+  }
+}
+
+function refreshLogs() {
+  loadLogs(false);
+}
+
+function toggleAutoRefresh() {
+  autoRefresh.value = !autoRefresh.value;
+
+  if (autoRefresh.value) {
+    // Refresh every 30 seconds
+    autoRefreshInterval.value = setInterval(() => {
+      refreshLogs();
+    }, 30000);
+  } else {
+    if (autoRefreshInterval.value) {
+      clearInterval(autoRefreshInterval.value);
+      autoRefreshInterval.value = null;
+    }
+  }
 }
 
 function formatTimestamp(timestamp) {
@@ -345,56 +488,51 @@ function formatTimestamp(timestamp) {
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays}d ago`;
 
-  return date.toLocaleString();
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
 }
 
-function toggleFilters() {
-  showFilters.value = !showFilters.value;
+function formatDuration(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(2)}s`;
 }
 
-function toggleFilter(level) {
-  const index = activeFilters.value.indexOf(level);
-  if (index > -1) {
-    if (activeFilters.value.length > 1) {
-      activeFilters.value.splice(index, 1);
-    }
-  } else {
-    activeFilters.value.push(level);
+function getStatusVariant(status) {
+  const variants = {
+    'SUCCESS': 'success',
+    'FAILURE': 'danger',
+    'ERROR': 'warning'
+  };
+  return variants[status] || 'neutral';
+}
+
+function formatKey(key) {
+  // Convert camelCase to Title Case
+  return key
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, str => str.toUpperCase())
+    .trim();
+}
+
+function formatValue(value) {
+  if (value === null || value === undefined) return 'N/A';
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
+  if (typeof value === 'string' && value.length > 100) {
+    return value.substring(0, 100) + '...';
   }
-  currentPage.value = 1; // Reset to first page when filters change
+  return String(value);
 }
-
-function toggleDetails(logId) {
-  const index = expandedLogs.value.indexOf(logId);
-  if (index > -1) {
-    expandedLogs.value.splice(index, 1);
-  } else {
-    expandedLogs.value.push(logId);
-  }
-}
-
-function refreshLogs() {
-  loadLogs();
-}
-
-function clearLogs() {
-  if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
-    logs.value = [];
-  }
-}
-
-function goToPage(page) {
-  currentPage.value = page;
-}
-
-// Watch for filter changes
-watch([activeFilters, timeRange], () => {
-  currentPage.value = 1;
-});
 
 // Lifecycle
-onMounted(() => {
-  loadLogs();
+onMounted(async () => {
+  await loadAreas();
+  await loadLogs();
+});
+
+onUnmounted(() => {
+  if (autoRefreshInterval.value) {
+    clearInterval(autoRefreshInterval.value);
+  }
 });
 </script>
 
