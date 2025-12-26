@@ -138,25 +138,48 @@ const error = ref(false)
 const searchQuery = ref('')
 const expandedServices = ref([])
 
-// Service icons and colors mapping (vibrant brand colors)
-const serviceMetadata = {
-  Gmail: { icon: MailIcon, color: '#EA4335' },        // Google Red
-  GitHub: { icon: GithubIcon, color: '#7C3AED' },      // Vibrant Purple
-  Discord: { icon: MessageSquareIcon, color: '#5865F2' }, // Discord Blurple
-  Dropbox: { icon: CloudIcon, color: '#0061FF' },      // Dropbox Blue
-  Outlook: { icon: CalendarIcon, color: '#0078D4' },   // Microsoft Blue
-  Timer: { icon: ClockIcon, color: '#10B981' },        // Emerald Green
-  Webhook: { icon: ZapIcon, color: '#F59E0B' },        // Amber
-  Slack: { icon: MessageSquareIcon, color: '#E01E5A' }, // Slack Magenta
-  Trello: { icon: CloudIcon, color: '#0079BF' },       // Trello Blue
-  Spotify: { icon: ZapIcon, color: '#1DB954' },        // Spotify Green
-  Twitter: { icon: MessageSquareIcon, color: '#1DA1F2' }, // Twitter Blue
-  Facebook: { icon: MessageSquareIcon, color: '#1877F2' }, // Facebook Blue
-  Instagram: { icon: ZapIcon, color: '#E4405F' },      // Instagram Pink
-  YouTube: { icon: ZapIcon, color: '#FF0000' },        // YouTube Red
-  LinkedIn: { icon: MessageSquareIcon, color: '#0A66C2' }, // LinkedIn Blue
-  Notion: { icon: CloudIcon, color: '#000000' },       // Notion Black
-  Asana: { icon: CloudIcon, color: '#F06A6A' }         // Asana Coral
+// Frontend-only service icons and colors for UI (keep vibrant brand colors)
+// This is NOT service discovery data - just UI theming
+const serviceIcons = {
+  gmail: MailIcon,
+  github: GithubIcon,
+  discord: MessageSquareIcon,
+  dropbox: CloudIcon,
+  outlook: CalendarIcon,
+  timer: ClockIcon,
+  webhook: ZapIcon,
+  slack: MessageSquareIcon,
+  trello: CloudIcon,
+  spotify: ZapIcon,
+  twitter: MessageSquareIcon,
+  facebook: MessageSquareIcon,
+  instagram: ZapIcon,
+  youtube: ZapIcon,
+  linkedin: MessageSquareIcon,
+  notion: CloudIcon,
+  asana: CloudIcon,
+  default: ZapIcon
+}
+
+const serviceColors = {
+  gmail: '#EA4335',        // Google Red
+  github: '#7C3AED',       // Vibrant Purple
+  discord: '#5865F2',      // Discord Blurple
+  dropbox: '#0061FF',      // Dropbox Blue
+  outlook: '#0078D4',      // Microsoft Blue
+  timer: '#10B981',        // Emerald Green
+  webhook: '#F59E0B',      // Amber
+  slack: '#E01E5A',        // Slack Magenta
+  trello: '#0079BF',       // Trello Blue
+  spotify: '#1DB954',      // Spotify Green
+  twitter: '#1DA1F2',      // Twitter Blue
+  facebook: '#1877F2',     // Facebook Blue
+  instagram: '#E4405F',    // Instagram Pink
+  youtube: '#FF0000',      // YouTube Red
+  linkedin: '#0A66C2',     // LinkedIn Blue
+  notion: '#000000',       // Notion Black
+  asana: '#F06A6A',        // Asana Coral
+  default: '#5b9bd5'       // Default blue
 }
 
 const filteredServices = computed(() => {
@@ -188,11 +211,13 @@ const filteredServices = computed(() => {
 })
 
 function getServiceIcon(serviceName) {
-  return serviceMetadata[serviceName]?.icon || ZapIcon
+  const normalizedName = serviceName.toLowerCase()
+  return serviceIcons[normalizedName] || serviceIcons.default
 }
 
 function getServiceColor(serviceName) {
-  return serviceMetadata[serviceName]?.color || '#5b9bd5'
+  const normalizedName = serviceName.toLowerCase()
+  return serviceColors[normalizedName] || serviceColors.default
 }
 
 function toggleService(serviceName) {
@@ -235,8 +260,21 @@ async function loadServices() {
   error.value = false
 
   try {
-    const data = await api.getAvailableServices()
-    services.value = data || []
+    // Use dynamic service discovery from backend
+    const data = await api.getServices()
+
+    // Backend returns: { type, name, description, requiresAuthentication, actionCount, reactionCount, actions, reactions }
+    // Map to expected format for the UI
+    services.value = (data || []).map(service => ({
+      name: service.name,  // Display name from backend
+      type: service.type,  // Service type (GMAIL, DISCORD, etc.)
+      description: service.description,
+      actions: service.actions || [],
+      reactions: service.reactions || [],
+      actionCount: service.actionCount || 0,
+      reactionCount: service.reactionCount || 0,
+      requiresAuthentication: service.requiresAuthentication
+    }))
 
     // Expand first service by default
     if (services.value.length > 0) {

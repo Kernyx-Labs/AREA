@@ -74,15 +74,26 @@ const refreshing = ref(null);
 const deleting = ref(null);
 const showDiscordModal = ref(false);
 
-// Service metadata
-const serviceMetadata = {
-  gmail: { displayName: 'Gmail', color: '#EA4335' },
-  discord: { displayName: 'Discord', color: '#5865F2' },
-  timer: { displayName: 'Timer', color: '#4285F4' },
-  github: { displayName: 'GitHub', color: '#6e40c9' },
-  dropbox: { displayName: 'Dropbox', color: '#0061FF' },
-  outlook: { displayName: 'Outlook', color: '#0078D4' }
+// Frontend-only service metadata for UI colors (keep vibrant brand colors)
+// This is NOT service discovery data - just UI theming
+const serviceColors = {
+  gmail: '#EA4335',     // Google Red
+  discord: '#5865F2',   // Discord Blurple
+  timer: '#10B981',     // Emerald Green
+  github: '#7C3AED',    // Vibrant Purple
+  dropbox: '#0061FF',   // Dropbox Blue
+  outlook: '#0078D4',   // Microsoft Blue
+  slack: '#E01E5A',     // Slack Magenta
+  trello: '#0079BF',    // Trello Blue
+  spotify: '#1DB954',   // Spotify Green
+  twitter: '#1DA1F2',   // Twitter Blue
+  notion: '#000000',    // Notion Black
+  default: '#5b9bd5'    // Default blue
 };
+
+function getServiceColor(serviceName) {
+  return serviceColors[serviceName.toLowerCase()] || serviceColors.default;
+}
 
 function formatExpiryDate(expiresAt) {
   if (!expiresAt) return '';
@@ -107,8 +118,8 @@ async function loadServices() {
     loading.value = true;
     error.value = null;
 
-    // Fetch available services from backend
-    const availableServices = await api.getAvailableServices();
+    // Fetch available services from backend (dynamic discovery)
+    const availableServices = await api.getServices();
 
     // Fetch connected services
     const connectedServices = await api.getConnectedServices();
@@ -126,20 +137,20 @@ async function loadServices() {
       };
     });
 
-    // Build display list - only show services from backend
+    // Build display list using backend service metadata
     displayServices.value = availableServices.map(service => {
-      const serviceName = service.name.toLowerCase();
-      const metadata = serviceMetadata[serviceName] || {
-        displayName: service.name,
-        color: '#666666'
-      };
-
-      const connection = connectedMap[serviceName];
+      // Backend provides: { type, name, description, requiresAuthentication, actionCount, reactionCount }
+      const serviceType = service.type.toLowerCase();
+      const connection = connectedMap[serviceType];
 
       return {
-        name: serviceName,
-        displayName: metadata.displayName,
-        color: metadata.color,
+        name: serviceType,
+        displayName: service.name,  // Use backend-provided display name
+        description: service.description,  // Backend-provided description
+        color: getServiceColor(serviceType),  // Use frontend color mapping
+        requiresAuth: service.requiresAuthentication,
+        actionCount: service.actionCount || 0,
+        reactionCount: service.reactionCount || 0,
         isConnected: !!connection,
         connectionId: connection?.id,
         expiresAt: connection?.expiresAt,
