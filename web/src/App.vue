@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar.vue'
 const route = useRoute()
 const router = useRouter()
 const currentPage = computed(() => route.name || 'dashboard')
+const hideLayout = computed(() => route.meta?.hideLayout === true)
 function goTo(page, params){
   if (route.name === page && JSON.stringify(route.params) === JSON.stringify(params || {})) return
   router.push(params ? { name: page, params } : { name: page })
@@ -16,12 +17,21 @@ function openEditor(areaId){
 </script>
 
 <template>
-  <Sidebar :currentPage="currentPage" @navigate="goTo" />
-  <div class="page-shift" :class="currentPage">
+  <template v-if="!hideLayout">
+    <Sidebar :currentPage="currentPage" @navigate="goTo" />
+    <div class="page-shift" :class="currentPage">
+      <router-view @openEditor="openEditor" />
+    </div>
+  </template>
+  <template v-else>
     <router-view @openEditor="openEditor" />
-  </div>
+  </template>
 </template>
 
 <style scoped>
-.page-shift { margin-left:64px; min-height:100vh; }
+.page-shift {
+  margin-left: 72px;
+  min-height: 100vh;
+  background: var(--color-bg);
+}
 </style>

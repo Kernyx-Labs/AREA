@@ -30,12 +30,20 @@ function unwrapApiResponse(response) {
 }
 
 export const api = {
-  // Get available services from about.json
+  /**
+   * Get available services from backend API
+   * Uses dynamic /api/services endpoint instead of static /about.json
+   * @returns {Promise<Array>} List of services in about.json compatible format
+   */
   async getAvailableServices() {
-    const response = await fetch(`${API_URL}/about.json`);
+    const response = await fetch(`${API_URL}/api/services`);
     if (!response.ok) throw new Error('Failed to fetch available services');
-    const data = await response.json();
-    return data.server.services || [];
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+
+    // Return services array directly (backend returns array of service objects)
+    // Format is compatible with about.json: array of { name, actions, reactions }
+    return Array.isArray(data) ? data : (data.services || []);
   },
 
   // Get connected services
@@ -279,6 +287,151 @@ export const api = {
   async getAvailableNodes() {
     const response = await fetch(`${API_URL}/api/workflows/available-nodes`);
     if (!response.ok) throw new Error('Failed to fetch available nodes');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
+  },
+
+  // Logs methods
+  async getLogs(filters = {}) {
+    const queryParams = new URLSearchParams(filters).toString();
+    const url = queryParams ? `${API_URL}/api/logs?${queryParams}` : `${API_URL}/api/logs`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch logs');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    // Return the full data object with logs, total, page, pageSize
+    return data;
+  },
+
+  // Authentication methods
+  async login(credentials) {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(credentials),
+    });
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    // Store token if provided
+    if (data.token) {
+      localStorage.setItem('authToken', data.token);
+    }
+    return data;
+  },
+
+  async register(userData) {
+    const response = await fetch(`${API_URL}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    });
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
+  },
+
+  async logout() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('rememberMe');
+  },
+
+  // Service Discovery API methods (Phase 2)
+
+  /**
+   * Get all available services with their actions and reactions
+   * @returns {Promise<Array>} List of services with metadata
+   */
+  async getServices() {
+    const response = await fetch(`${API_URL}/api/services`);
+    if (!response.ok) throw new Error('Failed to fetch services');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return Array.isArray(data) ? data : (data.services || []);
+  },
+
+  /**
+   * Get a specific service by type
+   * @param {string} type - Service type (e.g., 'GMAIL', 'DISCORD')
+   * @returns {Promise<Object>} Service details
+   */
+  async getService(type) {
+    const response = await fetch(`${API_URL}/api/services/${type}`);
+    if (!response.ok) throw new Error(`Failed to fetch service ${type}`);
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
+  },
+
+  /**
+   * Get actions (triggers) for a specific service
+   * @param {string} type - Service type (e.g., 'GMAIL')
+   * @returns {Promise<Array>} List of actions
+   */
+  async getServiceActions(type) {
+    const response = await fetch(`${API_URL}/api/services/${type}/actions`);
+    if (!response.ok) throw new Error(`Failed to fetch actions for ${type}`);
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return Array.isArray(data) ? data : (data.actions || []);
+  },
+
+  /**
+   * Get reactions (actions) for a specific service
+   * @param {string} type - Service type (e.g., 'DISCORD')
+   * @returns {Promise<Array>} List of reactions
+   */
+  async getServiceReactions(type) {
+    const response = await fetch(`${API_URL}/api/services/${type}/reactions`);
+    if (!response.ok) throw new Error(`Failed to fetch reactions for ${type}`);
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return Array.isArray(data) ? data : (data.reactions || []);
+  },
+
+  /**
+   * Get services that have actions (triggers)
+   * @returns {Promise<Array>} List of services with actions
+   */
+  async getServicesWithActions() {
+    const response = await fetch(`${API_URL}/api/services?hasActions=true`);
+    if (!response.ok) throw new Error('Failed to fetch services with actions');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return Array.isArray(data) ? data : (data.services || []);
+  },
+
+  /**
+   * Get services that have reactions (actions)
+   * @returns {Promise<Array>} List of services with reactions
+   */
+  async getServicesWithReactions() {
+    const response = await fetch(`${API_URL}/api/services?hasReactions=true`);
+    if (!response.ok) throw new Error('Failed to fetch services with reactions');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return Array.isArray(data) ? data : (data.services || []);
+  },
+
+  /**
+   * Get service statistics
+   * @returns {Promise<Object>} Service statistics
+   */
+  async getServiceStats() {
+    const response = await fetch(`${API_URL}/api/services/stats`);
+    if (!response.ok) throw new Error('Failed to fetch service stats');
     const result = await response.json();
     const data = unwrapApiResponse(result);
     return data;
