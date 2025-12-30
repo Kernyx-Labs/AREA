@@ -222,6 +222,12 @@ The desktop app reuses the Web UI (Vue/Vite) and is packaged with Tauri.
 
 Important: for native installers/bundles you generally build on each OS (Linux build on Linux, Windows build on Windows, macOS build on macOS).
 
+Prerequisites (all OS):
+- Node.js + npm
+- Rust toolchain (cargo + rustc, typically installed via rustup)
+
+Linux note: depending on your distro you may need additional system packages for WebView (GTK/WebKit) before `tauri build` works.
+
 ```bash
 # from repo root
 ./scripts/build-desktop.sh
