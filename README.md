@@ -118,6 +118,10 @@ The application follows a client-server architecture where:
 - **Build Tool**: Vite
 - **HTTP Client**: Axios
 - **Routing**: Vue Router
+
+### Desktop (optional)
+- **Wrapper**: Tauri (re-uses the Web UI)
+- **Targets**: Windows / macOS / Linux (built on each OS)
 - **Styling**: CSS3 with custom design system
 
 ### Mobile
@@ -211,6 +215,19 @@ cd web
 npm install
 npm run dev
 ```
+
+#### Desktop App (Tauri)
+
+The desktop app reuses the Web UI (Vue/Vite) and is packaged with Tauri.
+
+Important: for native installers/bundles you generally build on each OS (Linux build on Linux, Windows build on Windows, macOS build on macOS).
+
+```bash
+# from repo root
+./scripts/build-desktop.sh
+```
+
+Outputs are copied into `bin/<os>/latest/` (and `bin/<os>/<version>/` when the version is available).
 
 #### Mobile Client (Flutter)
 ```bash
