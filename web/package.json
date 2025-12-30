@@ -9,8 +9,9 @@
   "scripts": {
     "dev": "vite",
     "tauri:dev": "tauri dev",
+    "tauri:prebuild": "node ./scripts/generate-tauri-icons.mjs",
     "build": "vite build",
-    "tauri:build": "tauri build",
+    "tauri:build": "npm run -s tauri:prebuild && tauri build",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -16,6 +16,7 @@ An automation platform inspired by IFTTT and Zapier that allows users to create 
   - [🛠️ Tech Stack](#️-tech-stack)
     - [Backend](#backend)
     - [Web Frontend](#web-frontend)
+    - [Desktop (optional)](#desktop-optional)
     - [Mobile](#mobile)
     - [DevOps](#devops)
   - [📦 Prerequisites](#-prerequisites)
@@ -25,6 +26,7 @@ An automation platform inspired by IFTTT and Zapier that allows users to create 
     - [Local Development Setup](#local-development-setup)
       - [Backend (Spring Boot)](#backend-spring-boot)
       - [Web Client (Vue.js)](#web-client-vuejs)
+      - [Desktop App (Tauri)](#desktop-app-tauri)
       - [Mobile Client (Flutter)](#mobile-client-flutter)
   - [🔌 Available Services](#-available-services)
     - [Timer Service](#timer-service)
@@ -227,6 +229,12 @@ Prerequisites (all OS):
 - Rust toolchain (cargo + rustc, typically installed via rustup)
 
 Linux note: depending on your distro you may need additional system packages for WebView (GTK/WebKit) before `tauri build` works.
+
+Optional helper (Linux/macOS): you can try installing system dependencies automatically:
+
+```bash
+./scripts/build-desktop.sh --install-deps
+```
 
 ```bash
 # from repo root
