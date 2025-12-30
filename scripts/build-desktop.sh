@@ -39,6 +39,23 @@ STAGING_DIR="$OUT_DIR/_staging"
 
 mkdir -p "$OUT_DIR" "$STAGING_DIR"
 
+require_cmd() {
+  local cmd="$1"
+  local hint="$2"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "error: '$cmd' is required but was not found in PATH." >&2
+    if [[ -n "$hint" ]]; then
+      echo "hint: $hint" >&2
+    fi
+    exit 1
+  fi
+}
+
+require_cmd node "Install Node.js (see web/package.json engines)."
+require_cmd npm "Install npm (usually comes with Node.js)."
+require_cmd cargo "Install Rust (rustup) so Tauri can compile native binaries."
+require_cmd rustc "Install Rust (rustup) so Tauri can compile native binaries."
+
 echo "[1/3] Building web + Tauri for $OS…"
 (
   cd "$WEB_DIR"
@@ -78,7 +95,7 @@ if [[ -n "$VERSION" ]]; then
   cp -R "$STAGING_DIR"/* "$VERSIONED"/ 2>/dev/null || true
 fi
 
-echo "[3/3] Done. Artifacts:" 
+echo "[3/3] Done. Artifacts:"
 find "$DEST" -maxdepth 2 -type f 2>/dev/null | sed 's#^# - #' || true
 
 echo "\nTip: run this script on each OS to populate bin/linux, bin/macos, bin/windows."
