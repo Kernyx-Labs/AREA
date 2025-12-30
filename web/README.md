@@ -9,7 +9,7 @@ This template should help get you started developing with Vue 3 in Vite.
 ## Recommended Browser Setup
 
 - Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd) 
+  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
   - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
 - Firefox:
   - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
@@ -23,6 +23,34 @@ See [Vite Configuration Reference](https://vite.dev/config/).
 
 ```sh
 npm install
+```
+
+## Desktop app (Tauri)
+
+This project can be packaged as a lightweight desktop app (Windows/macOS/Linux) using Tauri.
+
+### Prerequisites
+
+- Rust toolchain (stable)
+- Tauri CLI (installed as a dependency, see below)
+- Platform build deps (varies by OS)
+
+### Install Tauri CLI
+
+```sh
+npm install -D @tauri-apps/cli
+```
+
+### Run desktop in dev
+
+```sh
+npm run tauri:dev
+```
+
+### Build desktop bundles
+
+```sh
+npm run tauri:build
 ```
 
 ### Compile and Hot-Reload for Development
