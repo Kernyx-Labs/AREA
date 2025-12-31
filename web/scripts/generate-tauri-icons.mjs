@@ -12,7 +12,7 @@ import { execSync } from 'node:child_process'
 //
 // Implementation:
 // - Uses ImageMagick's `convert` if available (recommended)
-// - Falls back to copying the source image (warning) if ImageMagick is missing
+// - Falls back to `tauri icon` (via @tauri-apps/cli) to ensure RGBA output when ImageMagick is missing
 
 const root = path.resolve(new URL('.', import.meta.url).pathname, '..')
 const tauriDir = path.resolve(root, 'src-tauri')
@@ -46,18 +46,12 @@ function which(cmd) {
 // ImageMagick v7 prefers `magick`, but many distros also ship `convert`.
 const imagemagickCmd = which('magick') ? 'magick' : which('convert') ? 'convert' : null
 
-// Generate PNG icons
-for (const { name, size } of outputs) {
-  const outPath = path.resolve(iconsDir, name)
-
-  if (imagemagickCmd) {
-    // -resize: generate target size
-    // -background none -alpha on: ensure alpha channel exists
-    // -define png:color-type=6: force RGBA
-    // -strip: remove profiles/metadata that occasionally confuse older tooling
+if (imagemagickCmd) {
+  // Generate PNG icons via ImageMagick when available for consistent cross-platform output.
+  for (const { name, size } of outputs) {
+    const outPath = path.resolve(iconsDir, name)
     const args = [
       imagemagickCmd,
-      // For v7, `magick` uses subcommand `convert`; for legacy `convert`, no subcommand.
       ...(imagemagickCmd === 'magick' ? ['convert'] : []),
       srcPng,
       '-resize',
@@ -75,11 +69,25 @@ for (const { name, size } of outputs) {
       stdio: 'inherit',
       shell: true
     })
-  } else {
-    // Fallback: copy source image; Tauri config references only these files.
-    // It may work, but it's better to install ImageMagick for proper resizing.
-    fs.copyFileSync(srcPng, outPath)
   }
+
+  console.log(`[tauri-icons] wrote ${outputs.length} icons to ${iconsDir} (source: ${srcPng})`)
+  process.exit(0)
 }
 
-console.log(`[tauri-icons] wrote ${outputs.length} icons to ${iconsDir} (source: ${srcPng})`)
+// Fallback: leverage the local Tauri CLI to generate PNGs with guaranteed RGBA channels.
+const pngFlags = outputs.map(({ size }) => `-p ${size}`).join(' ')
+const tauriIconCmd = `npx tauri icon ${JSON.stringify(srcPng)} ${pngFlags} -o ${JSON.stringify(iconsDir)}`
+
+try {
+  execSync(tauriIconCmd, {
+    stdio: 'inherit',
+    cwd: root,
+    shell: true
+  })
+  console.log(`[tauri-icons] wrote ${outputs.length} icons to ${iconsDir} via tauri icon (source: ${srcPng})`)
+} catch (error) {
+  console.error('[tauri-icons] unable to generate icons.')
+  console.error('Install ImageMagick (magick/convert) or ensure the Tauri CLI is available locally.')
+  throw error
+}
