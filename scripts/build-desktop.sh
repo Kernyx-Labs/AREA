@@ -80,6 +80,12 @@ esac
 OUT_DIR="$ROOT_DIR/bin/$OS"
 STAGING_DIR="$OUT_DIR/_staging"
 
+case "$OS" in
+  linux) TAURI_BUNDLE_TARGETS_VALUE="appimage,deb,rpm" ;;
+  macos) TAURI_BUNDLE_TARGETS_VALUE="app,dmg" ;;
+  windows) TAURI_BUNDLE_TARGETS_VALUE="msi,nsis" ;;
+esac
+
 mkdir -p "$OUT_DIR" "$STAGING_DIR"
 
 require_cmd() {
@@ -205,7 +211,7 @@ install_deps_windows() {
 
 
 if [[ "$INSTALL_DEPS" == "true" ]]; then
-  echo "Installing Tauri system dependencies for $OS…" >&2
+  echo "Installing Tauri system dependencies for ${OS}…" >&2
   case "$OS" in
     linux) install_deps_linux ;;
     macos) install_deps_macos ;;
@@ -217,10 +223,11 @@ if [[ "$INSTALL_DEPS" == "true" ]]; then
   fi
 fi
 
-echo "[1/3] Building web + Tauri for $OS…"
+echo "[1/3] Building web + Tauri for ${OS}…"
 (
   cd "$WEB_DIR"
-  npm run -s tauri:build
+  echo "   using TAURI_BUNDLE_TARGETS=${TAURI_BUNDLE_TARGETS_VALUE}" >&2
+  TAURI_BUNDLE_TARGETS="$TAURI_BUNDLE_TARGETS_VALUE" npm run -s tauri:build
 )
 
 # Tauri outputs bundles under src-tauri/target/release/bundle
@@ -230,7 +237,7 @@ if [[ ! -d "$BUNDLE_DIR" ]]; then
   exit 1
 fi
 
-echo "[2/3] Copying bundles into $OUT_DIR…"
+echo "[2/3] Copying bundles into ${OUT_DIR}…"
 rm -rf "$STAGING_DIR"/*
 
 # Copy everything to keep it simple (dmg/appimage/msi/deb/etc depending on platform).
