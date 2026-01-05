@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'constants/palette.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/form_wizard_editor_screen.dart';
 import 'screens/logs_screen.dart';
-import 'screens/pipeline_editor_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/services_screen.dart';
 
@@ -109,7 +109,7 @@ class HomeShell extends StatefulWidget {
 class _HomeShellState extends State<HomeShell> {
   final _pages = const [
     DashboardScreen(),
-    PipelineEditorScreen(),
+    FormWizardEditorScreen(),
     ServicesScreen(),
     LogsScreen(),
     ProfileScreen(),

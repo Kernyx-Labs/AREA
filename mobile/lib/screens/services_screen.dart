@@ -361,22 +361,13 @@ class _ServicesScreenState extends State<ServicesScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                       ),
-                      const SizedBox(height: 16),
-                      GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: 16,
-                          crossAxisSpacing: 16,
-                          childAspectRatio: 0.9,
-                        ),
-                        itemCount: _displayServices.length,
-                        itemBuilder: (context, index) {
-                          final service = _displayServices[index];
-                          return _buildServiceCard(service);
-                        },
-                      ),
+                      const SizedBox(height: 20),
+                      ..._displayServices.map((service) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _buildServiceCard(service),
+                        );
+                      }).toList(),
                     ],
                   ),
       ),
@@ -387,9 +378,12 @@ class _ServicesScreenState extends State<ServicesScreen> {
     final isConnected = service['isConnected'] as bool;
     final isExpired = service['isExpired'] as bool;
     final expiresAt = service['expiresAt'] as String?;
+    final description = service['description'] as String? ?? '';
+    final actionCount = service['actionCount'] as int? ?? 0;
+    final reactionCount = service['reactionCount'] as int? ?? 0;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: AppPalette.surface,
         borderRadius: BorderRadius.circular(16),
@@ -397,82 +391,158 @@ class _ServicesScreenState extends State<ServicesScreen> {
         boxShadow: AppShadows.card,
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            backgroundColor: service['color'],
-            radius: 28,
-            child: Text(
-              service['displayName'][0].toUpperCase(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            service['displayName'],
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppPalette.textPrimary,
-                  fontWeight: FontWeight.w600,
+          // Header: Icon + Title + Status
+          Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: service['color'],
+                radius: 32,
+                child: Text(
+                  service['displayName'][0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: isExpired
-                  ? AppPalette.danger.withOpacity(0.1)
-                  : isConnected
-                      ? AppPalette.success.withOpacity(0.1)
-                      : AppPalette.textMuted.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              isExpired ? 'Expired' : (isConnected ? 'Connected' : 'Not Connected'),
-              style: TextStyle(
-                color: isExpired
-                    ? AppPalette.danger
-                    : isConnected
-                        ? AppPalette.success
-                        : AppPalette.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
               ),
-            ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      service['displayName'],
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            color: AppPalette.textPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isExpired
+                            ? AppPalette.danger.withOpacity(0.15)
+                            : isConnected
+                                ? AppPalette.success.withOpacity(0.15)
+                                : AppPalette.textMuted.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isExpired ? 'Expired' : (isConnected ? 'Connected' : 'Not Connected'),
+                        style: TextStyle(
+                          color: isExpired
+                              ? AppPalette.danger
+                              : isConnected
+                                  ? AppPalette.success
+                                  : AppPalette.textMuted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          if (isConnected && expiresAt != null) ...[
-            const SizedBox(height: 4),
+
+          // Description
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 16),
             Text(
-              isExpired ? 'Token expired' : 'Expires ${_formatExpiryDate(expiresAt)}',
+              description,
               style: const TextStyle(
-                color: AppPalette.textMuted,
-                fontSize: 10,
+                color: AppPalette.textSecondary,
+                fontSize: 14,
+                height: 1.4,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
-          const Spacer(),
+
+          // Action/Reaction counts
+          if (actionCount > 0 || reactionCount > 0) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                if (actionCount > 0) ...[
+                  Icon(Icons.bolt, size: 16, color: AppPalette.accentBlue),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$actionCount trigger${actionCount != 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      color: AppPalette.textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                if (reactionCount > 0) ...[
+                  Icon(Icons.flash_on, size: 16, color: AppPalette.accentGreen),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$reactionCount action${reactionCount != 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      color: AppPalette.textMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+
+          // Expiry info
+          if (isConnected && expiresAt != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.access_time,
+                  size: 14,
+                  color: isExpired ? AppPalette.danger : AppPalette.textMuted,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  isExpired ? 'Token expired' : 'Expires ${_formatExpiryDate(expiresAt)}',
+                  style: TextStyle(
+                    color: isExpired ? AppPalette.danger : AppPalette.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // Action buttons
           if (!isConnected)
-            ElevatedButton(
-              onPressed: _connecting == service['name'] ? null : () => _connectService(service),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppPalette.accentBlue,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 36),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _connecting == service['name'] ? null : () => _connectService(service),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppPalette.accentBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: Text(
+                  _connecting == service['name'] ? 'Connecting...' : 'Connect',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
                 ),
               ),
-              child: Text(_connecting == service['name'] ? 'Connecting...' : 'Connect'),
             )
           else
             Row(
               children: [
-                if (isExpired && service['name'] == 'gmail')
+                if (isExpired && service['name'] == 'gmail') ...[
                   Expanded(
                     child: OutlinedButton(
                       onPressed: _refreshing == service['name']
@@ -480,16 +550,20 @@ class _ServicesScreenState extends State<ServicesScreen> {
                           : () => _refreshToken(service['connectionId'], service['name']),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppPalette.accentBlue,
-                        side: const BorderSide(color: AppPalette.accentBlue),
-                        minimumSize: const Size(0, 32),
+                        side: const BorderSide(color: AppPalette.accentBlue, width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      child: Text(_refreshing == service['name'] ? 'Refreshing...' : 'Refresh'),
+                      child: Text(
+                        _refreshing == service['name'] ? 'Refreshing...' : 'Refresh',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                if (isExpired && service['name'] == 'gmail') const SizedBox(width: 8),
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _deleting == service['name']
@@ -497,13 +571,16 @@ class _ServicesScreenState extends State<ServicesScreen> {
                         : () => _deleteService(service['connectionId'], service['name']),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppPalette.danger,
-                      side: const BorderSide(color: AppPalette.danger),
-                      minimumSize: const Size(0, 32),
+                      side: const BorderSide(color: AppPalette.danger, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: Text(_deleting == service['name'] ? 'Deleting...' : 'Delete'),
+                    child: Text(
+                      _deleting == service['name'] ? 'Deleting...' : 'Disconnect',
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
                   ),
                 ),
               ],
