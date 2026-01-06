@@ -368,10 +368,31 @@ async function loadLogs(append = false) {
 
   try {
     const filters = buildFilters();
-    const response = await api.getLogs(filters);
+
+    // Use getAllLogs if no specific area is selected, otherwise use getLogs for specific area
+    let response;
+    if (selectedAreaId.value) {
+      response = await api.getLogs(selectedAreaId.value, filters);
+      // Transform the response to match expected format
+      const fetchedLogs = response.logs || [];
+      fetchedLogs.forEach(log => {
+        // Add area name if not present
+        if (!log.areaName) {
+          const area = areas.value.find(a => a.id === parseInt(selectedAreaId.value));
+          log.areaName = area ? area.name : `Area #${selectedAreaId.value}`;
+        }
+      });
+      response = {
+        logs: fetchedLogs,
+        total: response.pagination?.totalElements || fetchedLogs.length,
+        page: response.pagination?.currentPage || 0,
+        pageSize: response.pagination?.pageSize || filters.limit
+      };
+    } else {
+      response = await api.getAllLogs(filters);
+    }
 
     // API returns { logs: [...], total: number, page: number, pageSize: number }
-    // But unwrapApiResponse extracts just the data object
     const fetchedLogs = Array.isArray(response) ? response : (response.logs || []);
     const total = response.total || fetchedLogs.length;
 

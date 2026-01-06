@@ -58,6 +58,18 @@
       @close="showDiscordModal = false"
       @connected="handleDiscordConnected"
     />
+
+    <!-- OAuth Modal for Gmail -->
+    <OAuthModal
+      v-if="showOAuthModal"
+      :open="showOAuthModal"
+      :title="`Connect ${currentOAuthService}`"
+      :message="`Authorize ${currentOAuthService} to enable automation workflows`"
+      :authUrl="currentAuthUrl"
+      @close="handleOAuthClose"
+      @success="handleOAuthSuccess"
+      @error="handleOAuthError"
+    />
   </div>
 </template>
 
@@ -65,6 +77,8 @@
 import { ref, onMounted } from 'vue';
 import { api } from '../services/api.js';
 import DiscordConnectionModal from './DiscordConnectionModal.vue';
+import OAuthModal from './ui/OAuthModal.vue';
+import { useModal } from '../composables/useModal.js';
 
 const loading = ref(true);
 const error = ref(null);
@@ -73,6 +87,10 @@ const connecting = ref(null);
 const refreshing = ref(null);
 const deleting = ref(null);
 const showDiscordModal = ref(false);
+const showOAuthModal = ref(false);
+const currentAuthUrl = ref('');
+const currentOAuthService = ref('');
+const modal = useModal();
 
 // Frontend-only service metadata for UI colors (keep vibrant brand colors)
 // This is NOT service discovery data - just UI theming
@@ -173,44 +191,54 @@ async function connectService(serviceName) {
     if (serviceName === 'gmail') {
       // Gmail requires OAuth flow
       const authData = await api.getGmailAuthUrl();
-
-      // Open OAuth URL in a new window
-      const width = 600;
-      const height = 700;
-      const left = (screen.width - width) / 2;
-      const top = (screen.height - height) / 2;
-
-      const authWindow = window.open(
-        authData.authUrl,
-        'Gmail Authorization',
-        `width=${width},height=${height},left=${left},top=${top},toolbar=no,menubar=no,location=no,status=no`
-      );
-
-      // Poll to check if auth window is closed
-      const pollTimer = setInterval(() => {
-        if (authWindow.closed) {
-          clearInterval(pollTimer);
-          // Refresh services after auth window closes
-          setTimeout(() => loadServices(), 1000);
-        }
-      }, 500);
+      currentAuthUrl.value = authData.authUrl;
+      currentOAuthService.value = 'Gmail';
+      showOAuthModal.value = true;
 
     } else if (serviceName === 'discord') {
       // Discord - show modal for bot token and channel ID
       showDiscordModal.value = true;
+      connecting.value = null;
 
     } else {
       // For other services, implement connection logic here
       console.log(`Connecting to ${serviceName}...`);
       // TODO: Implement other service connections
+      connecting.value = null;
     }
 
   } catch (err) {
     console.error(`Error connecting to ${serviceName}:`, err);
-    alert(`Failed to connect to ${serviceName}. Please try again.`);
-  } finally {
+    await modal.alert(`Failed to connect to ${serviceName}. Please try again.`, {
+      title: 'Connection Error',
+      variant: 'error'
+    });
     connecting.value = null;
   }
+}
+
+function handleOAuthSuccess() {
+  // Refresh services after successful OAuth
+  setTimeout(() => {
+    loadServices();
+    connecting.value = null;
+  }, 1000);
+}
+
+function handleOAuthError(error) {
+  console.error('OAuth error:', error);
+  modal.alert(error.message || 'Authentication failed. Please try again.', {
+    title: 'Authentication Error',
+    variant: 'error'
+  });
+  connecting.value = null;
+}
+
+function handleOAuthClose() {
+  showOAuthModal.value = false;
+  currentAuthUrl.value = '';
+  currentOAuthService.value = '';
+  connecting.value = null;
 }
 
 function handleDiscordConnected() {
@@ -219,7 +247,17 @@ function handleDiscordConnected() {
 }
 
 async function deleteService(connectionId, serviceName) {
-  if (!confirm(`Are you sure you want to delete the ${serviceName} connection?`)) {
+  const confirmed = await modal.confirm(
+    `Are you sure you want to delete the ${serviceName} connection?`,
+    {
+      title: 'Delete Connection',
+      variant: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    }
+  );
+
+  if (!confirmed) {
     return;
   }
 
@@ -229,7 +267,10 @@ async function deleteService(connectionId, serviceName) {
     await loadServices(); // Reload services
   } catch (err) {
     console.error(`Error deleting ${serviceName}:`, err);
-    alert(`Failed to delete ${serviceName}. Please try again.`);
+    await modal.alert(`Failed to delete ${serviceName}. Please try again.`, {
+      title: 'Error',
+      variant: 'error'
+    });
   } finally {
     deleting.value = null;
   }
@@ -241,11 +282,17 @@ async function refreshToken(connectionId, serviceName) {
     // api.refreshServiceToken now returns unwrapped data directly
     await api.refreshServiceToken(connectionId);
 
-    alert('Token refreshed successfully!');
+    await modal.alert('Token refreshed successfully!', {
+      title: 'Success',
+      variant: 'success'
+    });
     await loadServices(); // Reload services to update expiry
   } catch (err) {
     console.error(`Error refreshing token for ${serviceName}:`, err);
-    alert(`Failed to refresh token: ${err.message}`);
+    await modal.alert(`Failed to refresh token: ${err.message}`, {
+      title: 'Error',
+      variant: 'error'
+    });
   } finally {
     refreshing.value = null;
   }
