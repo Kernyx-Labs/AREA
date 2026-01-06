@@ -47,6 +47,58 @@
 			"description": "Dashboard statistics and metrics for monitoring AREA platform activity."
 		},
 		{
+			"name": "Logs",
+			"item": [
+				{
+					"name": "Get Global Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/logs?page=0&size=20&areaId=&status=&startDate=&endDate=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "logs"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0",
+									"description": "Page number (0-indexed, default: 0)"
+								},
+								{
+									"key": "size",
+									"value": "20",
+									"description": "Page size (max 100, default: 20)"
+								},
+								{
+									"key": "areaId",
+									"value": "",
+									"description": "Filter by specific area ID (optional)"
+								},
+								{
+									"key": "status",
+									"value": "",
+									"description": "Filter by execution status: SUCCESS, FAILURE, SKIPPED (optional)"
+								},
+								{
+									"key": "startDate",
+									"value": "",
+									"description": "Filter logs after this date (ISO format: 2024-01-01T00:00:00Z) (optional)"
+								},
+								{
+									"key": "endDate",
+									"value": "",
+									"description": "Filter logs before this date (ISO format: 2024-12-31T23:59:59Z) (optional)"
+								}
+							]
+						},
+						"description": "Retrieves execution logs from all areas with comprehensive filtering and pagination.\n\n**Features:**\n- Aggregates logs across all areas\n- Filter by area, status, and date range\n- Validated pagination (max 100 items per page)\n- Sorted by execution time (newest first)\n\n**Use Cases:**\n- Dedicated logs page with filtering\n- Activity monitoring across all workflows\n- Debugging specific time periods\n- Status-based log analysis\n\n**Performance:**\n- Uses database indexes for fast queries\n- Efficient pagination\n- No memory overhead from loading all data"
+					},
+					"response": []
+				}
+			],
+			"description": "Global execution logs with filtering and pagination for monitoring activity across all areas."
+		},
+		{
 			"name": "Areas (AREAs)",
 			"item": [
 				{
@@ -147,6 +199,20 @@
 							"path": ["api", "areas", "{{area_id}}", "status"]
 						},
 						"description": "Activates or deactivates an AREA. Set `active` to true to enable or false to disable."
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Area Status",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}/toggle",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}", "toggle"]
+						},
+						"description": "Toggles an AREA's active status. If the area is currently active, it becomes inactive, and vice versa. No request body needed - automatically flips the current state.\n\n**Benefits:**\n- Single API call to flip status\n- No need to know current state\n- Simpler frontend implementation"
 					},
 					"response": []
 				},

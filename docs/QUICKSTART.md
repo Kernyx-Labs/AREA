@@ -37,9 +37,10 @@ The app should be running at `http://localhost:5173`
 
 **Step 4: Configure the Action**
 1. Double-click the action card
-2. Enter your Discord webhook URL
-3. Write a message template (use `{{sender}}`, `{{subject}}`, etc.)
-4. Click "Save"
+2. Select your connected Discord bot
+3. Enter the channel ID where you want messages sent
+4. Write a message template (use `{{sender}}`, `{{subject}}`, etc.)
+5. Click "Save"
 
 **Step 5: Save the Workflow**
 1. Enter a workflow name at the top
