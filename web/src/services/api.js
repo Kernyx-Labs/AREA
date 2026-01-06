@@ -134,7 +134,9 @@ export const api = {
     if (!response.ok) throw new Error('Failed to fetch dashboard statistics');
     const result = await response.json();
     const data = unwrapApiResponse(result);
-    return data.stats;
+    // Backend returns { success: true, stats: {...} }
+    // unwrapApiResponse extracts the data which is { stats: {...} }
+    return data.stats || data;
   },
 
   // Get all areas
@@ -175,8 +177,17 @@ export const api = {
 
   // Toggle area status
   async toggleAreaStatus(id) {
-    const response = await fetch(`${API_URL}/api/areas/${id}/toggle`, {
-      method: 'PATCH',
+    // First get the current area to know its status
+    const currentArea = await this.getArea(id);
+    const newStatus = !currentArea.active;
+
+    // Use the correct endpoint: PUT /api/areas/{id}/status
+    const response = await fetch(`${API_URL}/api/areas/${id}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ active: newStatus }),
     });
     if (!response.ok) {
       const errorResult = await response.json();
@@ -185,6 +196,15 @@ export const api = {
     const result = await response.json();
     const data = unwrapApiResponse(result);
     return data; // Area object
+  },
+
+  // Get a specific area by ID
+  async getArea(id) {
+    const response = await fetch(`${API_URL}/api/areas/${id}`);
+    if (!response.ok) throw new Error('Failed to fetch area');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
   },
 
   // Workflow methods
@@ -293,15 +313,78 @@ export const api = {
   },
 
   // Logs methods
-  async getLogs(filters = {}) {
+  async getLogs(areaId, filters = {}) {
     const queryParams = new URLSearchParams(filters).toString();
-    const url = queryParams ? `${API_URL}/api/logs?${queryParams}` : `${API_URL}/api/logs`;
+    const url = queryParams
+      ? `${API_URL}/api/areas/${areaId}/logs?${queryParams}`
+      : `${API_URL}/api/areas/${areaId}/logs`;
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to fetch logs');
     const result = await response.json();
     const data = unwrapApiResponse(result);
-    // Return the full data object with logs, total, page, pageSize
+    // Return the full data object with logs, pagination
     return data;
+  },
+
+  // Get all logs across all areas
+  async getAllLogs(filters = {}) {
+    // First get all areas
+    const areasData = await this.getAreas();
+    const areas = areasData || [];
+
+    if (areas.length === 0) {
+      return { logs: [], total: 0, page: 0, pageSize: 0 };
+    }
+
+    // Fetch logs from all areas in parallel
+    const logsPromises = areas.map(area =>
+      this.getLogs(area.id, filters).catch(err => {
+        console.error(`Failed to fetch logs for area ${area.id}:`, err);
+        return { logs: [], pagination: { totalElements: 0 } };
+      })
+    );
+
+    const allLogsResults = await Promise.all(logsPromises);
+
+    // Combine all logs
+    let allLogs = [];
+    allLogsResults.forEach((result, index) => {
+      const areaLogs = result.logs || [];
+      // Add area name to each log
+      areaLogs.forEach(log => {
+        log.areaName = areas[index].name || `Area #${areas[index].id}`;
+      });
+      allLogs = [...allLogs, ...areaLogs];
+    });
+
+    // Sort by execution time (newest first)
+    allLogs.sort((a, b) => new Date(b.executedAt) - new Date(a.executedAt));
+
+    // Apply client-side filtering
+    let filteredLogs = allLogs;
+    if (filters.status && filters.status !== 'ALL') {
+      filteredLogs = filteredLogs.filter(log => log.status === filters.status);
+    }
+    if (filters.fromDate) {
+      const fromDate = new Date(filters.fromDate);
+      filteredLogs = filteredLogs.filter(log => new Date(log.executedAt) >= fromDate);
+    }
+    if (filters.toDate) {
+      const toDate = new Date(filters.toDate);
+      filteredLogs = filteredLogs.filter(log => new Date(log.executedAt) <= toDate);
+    }
+
+    // Apply pagination
+    const limit = parseInt(filters.limit) || 50;
+    const offset = parseInt(filters.offset) || 0;
+    const paginatedLogs = filteredLogs.slice(offset, offset + limit);
+
+    return {
+      logs: paginatedLogs,
+      total: filteredLogs.length,
+      page: Math.floor(offset / limit),
+      pageSize: limit
+    };
   },
 
   // Authentication methods
