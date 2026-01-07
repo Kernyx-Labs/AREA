@@ -18,7 +18,7 @@ public class CreateAreaRequest {
     private String gmailFromAddress;
 
     @NotBlank
-    private String discordWebhookUrl;
+    private String discordChannelId;
 
     private String discordChannelName;
 
@@ -69,13 +69,13 @@ public class CreateAreaRequest {
         this.gmailFromAddress = gmailFromAddress;
     }
 
-    public String getDiscordWebhookUrl() {
-        return discordWebhookUrl;
+    public String getDiscordChannelId() {
+        return discordChannelId;
     }
 
     @SuppressWarnings("unused")
-    public void setDiscordWebhookUrl(String discordWebhookUrl) {
-        this.discordWebhookUrl = discordWebhookUrl;
+    public void setDiscordChannelId(String discordChannelId) {
+        this.discordChannelId = discordChannelId;
     }
 
     public String getDiscordChannelName() {

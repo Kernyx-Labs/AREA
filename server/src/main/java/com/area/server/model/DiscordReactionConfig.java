@@ -6,8 +6,8 @@ import jakarta.persistence.Embeddable;
 @Embeddable
 public class DiscordReactionConfig {
 
-    @Column(name = "discord_webhook_url", length = 2048)
-    private String webhookUrl;
+    @Column(name = "discord_channel_id", length = 64)
+    private String channelId;
 
     @Column(name = "discord_channel_name")
     private String channelName;
@@ -15,12 +15,12 @@ public class DiscordReactionConfig {
     @Column(name = "discord_message_template", length = 1024)
     private String messageTemplate;
 
-    public String getWebhookUrl() {
-        return webhookUrl;
+    public String getChannelId() {
+        return channelId;
     }
 
-    public void setWebhookUrl(String webhookUrl) {
-        this.webhookUrl = webhookUrl;
+    public void setChannelId(String channelId) {
+        this.channelId = channelId;
     }
 
     @SuppressWarnings("unused")

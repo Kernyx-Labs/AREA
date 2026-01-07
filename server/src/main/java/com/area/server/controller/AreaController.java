@@ -12,6 +12,7 @@ import com.area.server.model.AreaTriggerState;
 import com.area.server.model.DiscordReactionConfig;
 import com.area.server.model.GmailActionConfig;
 import com.area.server.service.AreaService;
+import com.area.server.util.PaginationValidator;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +56,7 @@ public class AreaController {
         gmailConfig.setFromAddress(request.getGmailFromAddress());
 
         DiscordReactionConfig discordConfig = new DiscordReactionConfig();
-        discordConfig.setWebhookUrl(request.getDiscordWebhookUrl());
+        discordConfig.setChannelId(request.getDiscordChannelId());
         discordConfig.setChannelName(request.getDiscordChannelName());
         discordConfig.setMessageTemplate(request.getDiscordMessageTemplate());
 
@@ -134,6 +135,26 @@ public class AreaController {
     }
 
     /**
+     * Toggle AREA active status (active <-> inactive)
+     * Frontend expects this endpoint for quick toggle operations
+     * Throws ResourceNotFoundException if not found (handled by GlobalExceptionHandler)
+     */
+    @PatchMapping("/{id}/toggle")
+    public ResponseEntity<ApiResponse<AreaResponse>> toggleAreaStatus(@PathVariable Long id) {
+        logger.info("Toggling AREA {} status", id);
+
+        Area area = areaService.findById(id);
+        boolean newStatus = !area.isActive();
+        area = areaService.updateAreaStatus(id, newStatus);
+        AreaResponse response = mapToAreaResponse(area);
+
+        return ResponseEntity.ok(ApiResponse.success(
+            "AREA toggled to " + (newStatus ? "active" : "inactive"),
+            response
+        ));
+    }
+
+    /**
      * Get execution logs for an AREA with pagination
      * Throws ResourceNotFoundException if not found (handled by GlobalExceptionHandler)
      */
@@ -145,19 +166,8 @@ public class AreaController {
             @RequestParam(defaultValue = "executedAt") String sortBy,
             @RequestParam(defaultValue = "DESC") String sortDirection) {
 
-        // Validate and limit page size
-        if (size > 100) {
-            size = 100;
-        }
-        if (size < 1) {
-            size = 20;
-        }
-
-        Sort.Direction direction = sortDirection.equalsIgnoreCase("ASC")
-            ? Sort.Direction.ASC
-            : Sort.Direction.DESC;
-
-        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortBy));
+        // Use PaginationValidator to ensure safe parameter values
+        Pageable pageable = PaginationValidator.validateAndCreatePageable(page, size, sortBy, sortDirection);
 
         Page<AreaExecutionLog> logsPage = areaService.getExecutionLogs(id, pageable);
 
@@ -223,7 +233,7 @@ public class AreaController {
         // Map Discord config
         if (area.getDiscordConfig() != null) {
             AreaResponse.DiscordConfigDto discordDto = new AreaResponse.DiscordConfigDto(
-                area.getDiscordConfig().getWebhookUrl(),
+                area.getDiscordConfig().getChannelId(),
                 area.getDiscordConfig().getChannelName(),
                 area.getDiscordConfig().getMessageTemplate()
             );

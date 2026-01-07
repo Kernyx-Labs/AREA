@@ -82,6 +82,18 @@ public class ApiResponse<T> {
         return response;
     }
 
+    /**
+     * Create an error response with error type, message, and data
+     */
+    public static <T> ApiResponse<T> error(String error, String message, T data) {
+        ApiResponse<T> response = new ApiResponse<>();
+        response.setSuccess(false);
+        response.setError(error);
+        response.setMessage(message);
+        response.setData(data);
+        return response;
+    }
+
     // Getters and setters
 
     public boolean isSuccess() {

@@ -105,6 +105,26 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle ServiceConnectionInUseException - service connection cannot be deleted because it's in use
+     */
+    @ExceptionHandler(ServiceConnectionInUseException.class)
+    public ResponseEntity<ApiResponse<?>> handleServiceConnectionInUse(ServiceConnectionInUseException e) {
+        logger.warn("Service connection in use: {}", e.getMessage());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("connectionId", e.getConnectionId());
+        data.put("areasInUse", e.getAreaIds());
+        data.put("areaCount", e.getAreaCount());
+
+        if (e.getAreaNames() != null) {
+            data.put("areaNames", e.getAreaNames());
+        }
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiResponse.error("Service Connection In Use", e.getMessage(), data));
+    }
+
+    /**
      * Handle OAuthException - OAuth authentication and token errors
      */
     @ExceptionHandler(OAuthException.class)

@@ -11,7 +11,6 @@ import com.area.server.model.ServiceConnection;
 import com.area.server.repository.AreaExecutionLogRepository;
 import com.area.server.repository.AreaRepository;
 import com.area.server.repository.AreaTriggerStateRepository;
-import com.area.server.util.DiscordWebhookValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -57,8 +56,10 @@ public class AreaService {
             throw new ValidationException("reactionConnection", "Reaction connection must be of type DISCORD");
         }
 
-        // Validate Discord webhook URL
-        DiscordWebhookValidator.validateWebhookUrl(discordConfig.getWebhookUrl());
+        // Validate Discord channel ID
+        if (discordConfig.getChannelId() == null || discordConfig.getChannelId().isBlank()) {
+            throw new ValidationException("channelId", "Discord channel ID is required");
+        }
 
         Area area = new Area();
         area.setActionConnection(actionConnection);
