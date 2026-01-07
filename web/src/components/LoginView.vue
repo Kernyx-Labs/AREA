@@ -207,8 +207,10 @@ import {
   LinkIcon,
   ShieldIcon
 } from 'lucide-vue-next';
+import { useModal } from '../composables/useModal.js';
 
 const router = useRouter();
+const modal = useModal();
 
 // State
 const isLogin = ref(true);
@@ -282,8 +284,11 @@ async function handleSubmit() {
   }, 500);
 }
 
-function handleForgotPassword() {
-  alert('Password reset functionality coming soon!');
+async function handleForgotPassword() {
+  await modal.alert('Password reset functionality coming soon!', {
+    title: 'Coming Soon',
+    variant: 'info'
+  });
 }
 
 function handleSocialLogin(provider) {

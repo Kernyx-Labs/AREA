@@ -265,16 +265,28 @@ async function loadServices() {
 
     // Backend returns: { type, name, description, requiresAuthentication, actionCount, reactionCount, actions, reactions }
     // Map to expected format for the UI
-    services.value = (data || []).map(service => ({
-      name: service.name,  // Display name from backend
-      type: service.type,  // Service type (GMAIL, DISCORD, etc.)
-      description: service.description,
-      actions: service.actions || [],
-      reactions: service.reactions || [],
-      actionCount: service.actionCount || 0,
-      reactionCount: service.reactionCount || 0,
-      requiresAuthentication: service.requiresAuthentication
-    }))
+    services.value = (data || []).map(service => {
+      const mappedService = {
+        name: service.name,  // Display name from backend
+        type: service.type,  // Service type (GMAIL, DISCORD, etc.)
+        description: service.description,
+        actions: service.actions || [],
+        reactions: (service.reactions || []).map(reaction => {
+          // For Discord reactions, filter out channelId field since it's auto-populated from ServiceConnection
+          if (service.type === 'DISCORD' && reaction.configFields) {
+            return {
+              ...reaction,
+              configFields: reaction.configFields.filter(field => field.name !== 'channelId')
+            }
+          }
+          return reaction
+        }),
+        actionCount: service.actionCount || 0,
+        reactionCount: service.reactionCount || 0,
+        requiresAuthentication: service.requiresAuthentication
+      }
+      return mappedService
+    })
 
     // Expand first service by default
     if (services.value.length > 0) {

@@ -2,6 +2,7 @@
 import { useRoute, useRouter } from 'vue-router'
 import { computed } from 'vue'
 import Sidebar from './components/Sidebar.vue'
+import ModalProvider from './components/ModalProvider.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +27,9 @@ function openEditor(areaId){
   <template v-else>
     <router-view @openEditor="openEditor" />
   </template>
+
+  <!-- Global modal provider -->
+  <ModalProvider />
 </template>
 
 <style scoped>

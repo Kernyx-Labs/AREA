@@ -196,13 +196,24 @@ async function saveAsArea(workflowData) {
     throw new Error('Discord not connected. Please connect Discord in Services page.')
   }
 
+  // Extract channel ID from Discord connection metadata
+  let discordChannelId = null
+  if (discordConnection.metadata) {
+    try {
+      const metadata = JSON.parse(discordConnection.metadata)
+      discordChannelId = metadata.channelId
+    } catch (e) {
+      console.error('Failed to parse Discord metadata:', e)
+    }
+  }
+
+  if (!discordChannelId) {
+    throw new Error('Discord channel ID not found in connection. Please reconnect Discord in Services page.')
+  }
+
   // Extract config
   const triggerConfig = workflowData.trigger.config || {}
   const actionConfig = workflowData.actions[0]?.config || {}
-
-  if (!actionConfig.webhookUrl) {
-    throw new Error('Discord webhook URL is required')
-  }
 
   const areaData = {
     actionConnectionId: gmailConnection.id,
@@ -210,7 +221,7 @@ async function saveAsArea(workflowData) {
     gmailLabel: triggerConfig.label || 'INBOX',
     gmailSubjectContains: triggerConfig.subjectFilter || '',
     gmailFromAddress: triggerConfig.senderFilter || '',
-    discordWebhookUrl: actionConfig.webhookUrl,
+    discordChannelId: discordChannelId, // Use channelId from ServiceConnection
     discordChannelName: actionConfig.channelName || 'general',
     discordMessageTemplate: actionConfig.message || 'New email: {{subject}}'
   }
