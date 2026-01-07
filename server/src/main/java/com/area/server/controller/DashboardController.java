@@ -1,11 +1,13 @@
 package com.area.server.controller;
 
+import com.area.server.dto.response.ApiResponse;
 import com.area.server.model.Area;
 import com.area.server.model.AreaExecutionLog;
 import com.area.server.model.ServiceConnection;
 import com.area.server.repository.AreaExecutionLogRepository;
 import com.area.server.repository.AreaRepository;
 import com.area.server.repository.ServiceConnectionRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,57 +35,50 @@ public class DashboardController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getDashboardStats() {
-        // Get all areas
-        List<Area> allAreas = areaRepository.findAll();
-        long totalAreas = allAreas.size();
-        long activeAreas = allAreas.stream().filter(Area::isActive).count();
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getDashboardStats() {
+        // Use optimized count queries instead of loading all data into memory
+
+        // Get area counts
+        long totalAreas = areaRepository.count();
+        long activeAreas = areaRepository.findByActiveTrue().size(); // Already optimized query
         long inactiveAreas = totalAreas - activeAreas;
 
-        // Get service connections
+        // Get service connections count
         long connectedServices = serviceConnectionRepository.count();
 
-        // Get execution logs from last 24 hours
+        // Get execution statistics for last 24 hours using indexed queries
         Instant last24Hours = Instant.now().minus(24, ChronoUnit.HOURS);
-        List<AreaExecutionLog> recentLogs = executionLogRepository.findAll().stream()
-            .filter(log -> log.getExecutedAt() != null && log.getExecutedAt().isAfter(last24Hours))
-            .collect(Collectors.toList());
-
-        long executionsLast24h = recentLogs.size();
-        long successfulExecutions = recentLogs.stream()
-            .filter(log -> log.getStatus() == AreaExecutionLog.ExecutionStatus.SUCCESS)
-            .count();
-        long failedExecutions = recentLogs.stream()
-            .filter(log -> log.getStatus() == AreaExecutionLog.ExecutionStatus.FAILURE)
-            .count();
+        long executionsLast24h = executionLogRepository.countByExecutedAtAfter(last24Hours);
+        long successfulExecutions = executionLogRepository.countByStatusAndExecutedAtAfter(
+            AreaExecutionLog.ExecutionStatus.SUCCESS, last24Hours);
+        long failedExecutions = executionLogRepository.countByStatusAndExecutedAtAfter(
+            AreaExecutionLog.ExecutionStatus.FAILURE, last24Hours);
 
         // Calculate success rate
         double successRate = executionsLast24h > 0
             ? (double) successfulExecutions / executionsLast24h * 100
             : 0.0;
 
-        // Get last 7 days execution trend
+        // Get execution trend (last 7 days vs previous 7 days)
         Instant last7Days = Instant.now().minus(7, ChronoUnit.DAYS);
-        List<AreaExecutionLog> last7DaysLogs = executionLogRepository.findAll().stream()
-            .filter(log -> log.getExecutedAt() != null && log.getExecutedAt().isAfter(last7Days))
-            .collect(Collectors.toList());
-
-        // Get previous 7 days for comparison
         Instant previous7DaysStart = Instant.now().minus(14, ChronoUnit.DAYS);
-        Instant previous7DaysEnd = last7Days;
-        long previousWeekExecutions = executionLogRepository.findAll().stream()
-            .filter(log -> log.getExecutedAt() != null
-                && log.getExecutedAt().isAfter(previous7DaysStart)
-                && log.getExecutedAt().isBefore(previous7DaysEnd))
-            .count();
+
+        long currentWeekExecutions = executionLogRepository.countByExecutedAtAfter(last7Days);
+        // For previous week, we need to count between previous7DaysStart and last7Days
+        List<AreaExecutionLog> previousWeekLogs = executionLogRepository
+            .findByExecutedAtBetween(previous7DaysStart, last7Days, PageRequest.of(0, Integer.MAX_VALUE))
+            .getContent();
+        long previousWeekExecutions = previousWeekLogs.size();
 
         // Calculate trend
-        long currentWeekExecutions = last7DaysLogs.size();
         double executionTrend = previousWeekExecutions > 0
             ? ((double) (currentWeekExecutions - previousWeekExecutions) / previousWeekExecutions * 100)
             : 0.0;
 
-        // Get most active areas (top 5)
+        // Get most active areas (top 5) from last 24 hours
+        List<AreaExecutionLog> recentLogs = executionLogRepository.findRecentLogs(
+            last24Hours, PageRequest.of(0, 1000)); // Limit to 1000 most recent
+
         Map<Long, Long> areaExecutionCount = recentLogs.stream()
             .filter(log -> log.getArea() != null)
             .collect(Collectors.groupingBy(log -> log.getArea().getId(), Collectors.counting()));
@@ -101,10 +96,10 @@ public class DashboardController {
             })
             .collect(Collectors.toList());
 
-        // Get recent activity (last 10 executions)
-        List<Map<String, Object>> recentActivity = executionLogRepository.findAll().stream()
-            .sorted(Comparator.comparing(AreaExecutionLog::getExecutedAt).reversed())
-            .limit(10)
+        // Get recent activity (last 10 executions) using indexed query
+        List<Map<String, Object>> recentActivity = executionLogRepository
+            .findRecentLogs(Instant.now().minus(30, ChronoUnit.DAYS), PageRequest.of(0, 10))
+            .stream()
             .map(log -> {
                 Map<String, Object> map = new HashMap<>();
                 map.put("id", log.getId());
@@ -132,9 +127,6 @@ public class DashboardController {
         stats.put("topAreas", topAreas);
         stats.put("recentActivity", recentActivity);
 
-        return ResponseEntity.ok(Map.of(
-            "success", true,
-            "stats", stats
-        ));
+        return ResponseEntity.ok(ApiResponse.success(stats));
     }
 }

@@ -13,7 +13,7 @@ public interface ReactionExecutor {
 
     /**
      * Get the unique identifier for this reaction type
-     * Format: "service.reaction" (e.g., "discord.send_webhook")
+     * Format: "service.reaction" (e.g., "discord.send_message")
      */
     String getReactionType();
 
