@@ -10,7 +10,7 @@ import java.util.List;
  * Discord integration service providing message sending reactions.
  * Implements the ServiceIntegration interface to enable auto-discovery.
  *
- * Discord uses bot token authentication and provides
+ * Discord uses webhook-based integration (no OAuth required) and provides
  * reactions for sending messages and rich embeds to Discord channels.
  */
 @Service
@@ -28,7 +28,7 @@ public class DiscordIntegration implements ServiceIntegration {
 
     @Override
     public String getDescription() {
-        return "Send messages and notifications to Discord channels using a bot";
+        return "Send messages and notifications to Discord channels via webhooks";
     }
 
     @Override
@@ -43,14 +43,14 @@ public class DiscordIntegration implements ServiceIntegration {
             new ReactionDefinition(
                 "discord.send_message",
                 "Send Message",
-                "Send a simple text message to a Discord channel using your configured bot",
+                "Send a simple text message to a Discord channel via webhook",
                 List.of(
                     new FieldDefinition(
-                        "channelId",
-                        "Channel ID",
-                        "string",
+                        "webhookUrl",
+                        "Webhook URL",
+                        "url",
                         true,
-                        "Discord channel ID where the message will be sent. Enable Developer Mode in Discord and right-click the channel to copy ID"
+                        "Discord webhook URL (required). Get this from Discord Channel Settings > Integrations > Webhooks"
                     ),
                     new FieldDefinition(
                         "messageTemplate",
@@ -74,11 +74,11 @@ public class DiscordIntegration implements ServiceIntegration {
                 "Send a formatted rich embed message to Discord with email details",
                 List.of(
                     new FieldDefinition(
-                        "channelId",
-                        "Channel ID",
-                        "string",
+                        "webhookUrl",
+                        "Webhook URL",
+                        "url",
                         true,
-                        "Discord channel ID (required)"
+                        "Discord webhook URL (required)"
                     ),
                     new FieldDefinition(
                         "channelName",
@@ -95,11 +95,11 @@ public class DiscordIntegration implements ServiceIntegration {
                 "Send a summary notification when multiple emails are received",
                 List.of(
                     new FieldDefinition(
-                        "channelId",
-                        "Channel ID",
-                        "string",
+                        "webhookUrl",
+                        "Webhook URL",
+                        "url",
                         true,
-                        "Discord channel ID (required)"
+                        "Discord webhook URL (required)"
                     ),
                     new FieldDefinition(
                         "maxEmailsToShow",
@@ -115,6 +115,6 @@ public class DiscordIntegration implements ServiceIntegration {
 
     @Override
     public boolean requiresAuthentication() {
-        return true; // Discord now requires bot token authentication
+        return false; // Discord webhooks don't require OAuth authentication
     }
 }

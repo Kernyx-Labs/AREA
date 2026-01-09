@@ -2,10 +2,8 @@ package com.area.server.service;
 
 import com.area.server.dto.GmailMessage;
 import com.area.server.model.DiscordReactionConfig;
-import com.area.server.model.ServiceConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -30,47 +28,43 @@ public class DiscordService {
     private final WebClient discordClient;
 
     public DiscordService(WebClient.Builder builder) {
-        this.discordClient = builder.baseUrl("https://discord.com/api/v10").build();
+        this.discordClient = builder.build();
     }
 
-    public Mono<Void> sendMessage(ServiceConnection connection, DiscordReactionConfig config, String content) {
-        return sendMessageWithRetry(connection, config, content);
+    public Mono<Void> sendMessage(DiscordReactionConfig config, String content) {
+        return sendMessageWithRetry(config, content);
     }
 
-    public Mono<Void> sendRichEmbed(ServiceConnection connection, DiscordReactionConfig config, GmailMessage email) {
-        if (connection == null || connection.getAccessToken() == null || connection.getAccessToken().isBlank()) {
-            return Mono.error(new IllegalArgumentException("Discord bot token is required"));
-        }
-
-        if (config == null || config.getChannelId() == null || config.getChannelId().isBlank()) {
-            return Mono.error(new IllegalArgumentException("Discord channel ID is required"));
+    public Mono<Void> sendRichEmbed(DiscordReactionConfig config, GmailMessage email) {
+        if (config == null || config.getWebhookUrl() == null || config.getWebhookUrl().isBlank()) {
+            return Mono.error(new IllegalArgumentException("Discord webhook URL is required"));
         }
 
         Map<String, Object> embed = createEmbed(email);
         Map<String, Object> payload = Map.of(
+            "username", "AREA Gmail Bot",
             "embeds", List.of(embed)
         );
 
         logger.debug("Sending Discord embed for email: {}", email.getSubject());
 
         return discordClient.post()
-            .uri("/channels/{channelId}/messages", config.getChannelId())
-            .header(HttpHeaders.AUTHORIZATION, "Bot " + connection.getAccessToken())
+            .uri(config.getWebhookUrl())
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(payload)
             .retrieve()
             .onStatus(
                 status -> status.is4xxClientError(),
                 response -> {
-                    logger.error("Discord API returned 4xx error");
-                    return Mono.error(new IllegalArgumentException("Invalid Discord bot token or channel ID"));
+                    logger.error("Discord webhook returned 4xx error");
+                    return Mono.error(new IllegalArgumentException("Invalid Discord webhook URL or configuration"));
                 }
             )
             .bodyToMono(Void.class)
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
                 .filter(throwable -> !(throwable instanceof IllegalArgumentException))
                 .doBeforeRetry(signal ->
-                    logger.warn("Retrying Discord API call (attempt {})", signal.totalRetries() + 1)
+                    logger.warn("Retrying Discord webhook call (attempt {})", signal.totalRetries() + 1)
                 ))
             .doOnSuccess(v -> logger.info("Successfully sent Discord notification for email: {}", email.getSubject()))
             .onErrorResume(error -> {
@@ -79,28 +73,24 @@ public class DiscordService {
             });
     }
 
-    private Mono<Void> sendMessageWithRetry(ServiceConnection connection, DiscordReactionConfig config, String content) {
-        if (connection == null || connection.getAccessToken() == null || connection.getAccessToken().isBlank()) {
-            return Mono.error(new IllegalArgumentException("Discord bot token is required"));
-        }
-
-        if (config == null || config.getChannelId() == null || config.getChannelId().isBlank()) {
-            return Mono.error(new IllegalArgumentException("Discord channel ID is required"));
+    private Mono<Void> sendMessageWithRetry(DiscordReactionConfig config, String content) {
+        if (config == null || config.getWebhookUrl() == null || config.getWebhookUrl().isBlank()) {
+            return Mono.error(new IllegalArgumentException("Discord webhook URL is required"));
         }
 
         Map<String, Object> payload = Map.of(
-            "content", content
+            "content", content,
+            "username", "AREA Bot"
         );
 
         return discordClient.post()
-            .uri("/channels/{channelId}/messages", config.getChannelId())
-            .header(HttpHeaders.AUTHORIZATION, "Bot " + connection.getAccessToken())
+            .uri(config.getWebhookUrl())
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(payload)
             .retrieve()
             .onStatus(
                 status -> status.is4xxClientError(),
-                response -> Mono.error(new IllegalArgumentException("Invalid Discord bot token or channel ID"))
+                response -> Mono.error(new IllegalArgumentException("Invalid Discord webhook"))
             )
             .bodyToMono(Void.class)
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
@@ -163,20 +153,11 @@ public class DiscordService {
         return text.substring(0, maxLength - 3) + "...";
     }
 
-    public Mono<Void> sendBatchNotification(ServiceConnection connection,
-                                           DiscordReactionConfig config,
+    public Mono<Void> sendBatchNotification(DiscordReactionConfig config,
                                            List<GmailMessage> emails,
                                            int totalCount) {
         if (emails == null || emails.isEmpty()) {
             return Mono.empty();
-        }
-
-        if (connection == null || connection.getAccessToken() == null || connection.getAccessToken().isBlank()) {
-            return Mono.error(new IllegalArgumentException("Discord bot token is required"));
-        }
-
-        if (config == null || config.getChannelId() == null || config.getChannelId().isBlank()) {
-            return Mono.error(new IllegalArgumentException("Discord channel ID is required"));
         }
 
         // Create a summary embed
@@ -200,12 +181,12 @@ public class DiscordService {
         embed.put("timestamp", Instant.now().toString());
 
         Map<String, Object> payload = Map.of(
+            "username", "AREA Gmail Bot",
             "embeds", List.of(embed)
         );
 
         return discordClient.post()
-            .uri("/channels/{channelId}/messages", config.getChannelId())
-            .header(HttpHeaders.AUTHORIZATION, "Bot " + connection.getAccessToken())
+            .uri(config.getWebhookUrl())
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(payload)
             .retrieve()
