@@ -5,11 +5,7 @@ import java.time.Instant;
 
 @Entity
 @Table(name = "area_execution_logs", indexes = {
-    @Index(name = "idx_area_timestamp", columnList = "area_id,executed_at"),
-    @Index(name = "idx_executed_at", columnList = "executed_at"),
-    @Index(name = "idx_status", columnList = "status"),
-    @Index(name = "idx_status_executed_at", columnList = "status,executed_at"),
-    @Index(name = "idx_area_status", columnList = "area_id,status")
+    @Index(name = "idx_area_timestamp", columnList = "area_id,executed_at")
 })
 public class AreaExecutionLog {
 

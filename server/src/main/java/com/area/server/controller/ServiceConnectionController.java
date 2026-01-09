@@ -44,37 +44,6 @@ public class ServiceConnectionController {
         return serviceConnectionService.list();
     }
 
-    /**
-     * Check if a service connection can be safely deleted.
-     * Returns information about whether the connection is in use by any areas.
-     */
-    @GetMapping("/{id}/can-delete")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> canDelete(@PathVariable Long id) {
-        // Verify connection exists (throws ServiceConnectionNotFoundException if not)
-        serviceConnectionService.findById(id);
-
-        boolean canDelete = serviceConnectionService.canDelete(id);
-        var areasUsingConnection = serviceConnectionService.getAreasUsingConnection(id);
-
-        Map<String, Object> data = Map.of(
-            "canDelete", canDelete,
-            "connectionId", id,
-            "areasInUse", areasUsingConnection.stream()
-                .map(area -> Map.of(
-                    "id", area.getId(),
-                    "active", area.isActive()
-                ))
-                .toList(),
-            "areaCount", areasUsingConnection.size()
-        );
-
-        String message = canDelete
-            ? "Connection can be safely deleted"
-            : String.format("Connection is being used by %d area(s)", areasUsingConnection.size());
-
-        return ResponseEntity.ok(ApiResponse.success(message, data));
-    }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         serviceConnectionService.delete(id);

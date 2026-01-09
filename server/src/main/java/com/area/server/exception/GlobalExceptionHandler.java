@@ -105,26 +105,6 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handle ServiceConnectionInUseException - service connection cannot be deleted because it's in use
-     */
-    @ExceptionHandler(ServiceConnectionInUseException.class)
-    public ResponseEntity<ApiResponse<?>> handleServiceConnectionInUse(ServiceConnectionInUseException e) {
-        logger.warn("Service connection in use: {}", e.getMessage());
-
-        Map<String, Object> data = new HashMap<>();
-        data.put("connectionId", e.getConnectionId());
-        data.put("areasInUse", e.getAreaIds());
-        data.put("areaCount", e.getAreaCount());
-
-        if (e.getAreaNames() != null) {
-            data.put("areaNames", e.getAreaNames());
-        }
-
-        return ResponseEntity.status(HttpStatus.CONFLICT)
-            .body(ApiResponse.error("Service Connection In Use", e.getMessage(), data));
-    }
-
-    /**
      * Handle OAuthException - OAuth authentication and token errors
      */
     @ExceptionHandler(OAuthException.class)
@@ -142,6 +122,36 @@ public class GlobalExceptionHandler {
         logger.warn("Business validation error: {}", e.getMessage());
         return ResponseEntity.badRequest()
             .body(ApiResponse.error("Validation Error", e.getMessage()));
+    }
+
+    /**
+     * Handle AuthenticationException - authentication failures
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<?>> handleAuthentication(AuthenticationException e) {
+        logger.warn("Authentication error: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(ApiResponse.error("Authentication Error", e.getMessage()));
+    }
+
+    /**
+     * Handle UserAlreadyExistsException - duplicate user registration
+     */
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<?>> handleUserAlreadyExists(UserAlreadyExistsException e) {
+        logger.warn("User already exists: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiResponse.error("User Already Exists", e.getMessage()));
+    }
+
+    /**
+     * Handle InvalidTokenException - invalid or expired JWT tokens
+     */
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ApiResponse<?>> handleInvalidToken(InvalidTokenException e) {
+        logger.warn("Invalid token: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(ApiResponse.error("Invalid Token", e.getMessage()));
     }
 
     /**

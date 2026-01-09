@@ -51,24 +51,24 @@ public class AreaResponse {
     }
 
     public static class DiscordConfigDto {
-        private String channelId;
+        private String webhookUrl;
         private String channelName;
         private String messageTemplate;
 
         public DiscordConfigDto() {}
 
-        public DiscordConfigDto(String channelId, String channelName, String messageTemplate) {
-            this.channelId = channelId;
+        public DiscordConfigDto(String webhookUrl, String channelName, String messageTemplate) {
+            this.webhookUrl = webhookUrl;
             this.channelName = channelName;
             this.messageTemplate = messageTemplate;
         }
 
-        public String getChannelId() {
-            return channelId;
+        public String getWebhookUrl() {
+            return webhookUrl;
         }
 
-        public void setChannelId(String channelId) {
-            this.channelId = channelId;
+        public void setWebhookUrl(String webhookUrl) {
+            this.webhookUrl = webhookUrl;
         }
 
         public String getChannelName() {
