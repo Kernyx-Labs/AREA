@@ -125,6 +125,36 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle AuthenticationException - authentication failures
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<?>> handleAuthentication(AuthenticationException e) {
+        logger.warn("Authentication error: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(ApiResponse.error("Authentication Error", e.getMessage()));
+    }
+
+    /**
+     * Handle UserAlreadyExistsException - duplicate user registration
+     */
+    @ExceptionHandler(UserAlreadyExistsException.class)
+    public ResponseEntity<ApiResponse<?>> handleUserAlreadyExists(UserAlreadyExistsException e) {
+        logger.warn("User already exists: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(ApiResponse.error("User Already Exists", e.getMessage()));
+    }
+
+    /**
+     * Handle InvalidTokenException - invalid or expired JWT tokens
+     */
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<ApiResponse<?>> handleInvalidToken(InvalidTokenException e) {
+        logger.warn("Invalid token: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(ApiResponse.error("Invalid Token", e.getMessage()));
+    }
+
+    /**
      * Catch-all handler for unexpected exceptions
      */
     @ExceptionHandler(Exception.class)
