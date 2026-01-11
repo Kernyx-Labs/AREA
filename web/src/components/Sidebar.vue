@@ -25,9 +25,10 @@
 import { ZapIcon, HomeIcon, SettingsIcon, UserIcon, LogOutIcon, FileTextIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { api } from '../services/api.js'
+import { useAuthStore } from '../stores/authStore.js'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const props = defineProps({ currentPage: [String, Object] })
 defineEmits(['navigate'])
 const currentPage = computed(() => typeof props.currentPage === 'string' ? props.currentPage : props.currentPage?.value)
@@ -40,8 +41,14 @@ const items = [
 ]
 
 async function handleLogout() {
-  await api.logout()
-  router.push({ name: 'login' })
+  try {
+    await authStore.logout()
+    router.push({ name: 'login' })
+  } catch (error) {
+    console.error('Logout error:', error)
+    // Even if logout API fails, redirect to login
+    router.push({ name: 'login' })
+  }
 }
 </script>
 
