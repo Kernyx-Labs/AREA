@@ -28,7 +28,7 @@ public class AuthService {
     private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
 
     private static final Pattern PASSWORD_PATTERN = Pattern.compile(
-        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&])[A-Za-z\\d@$!%*?&]{8,}$"
+        "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&.;_-])[A-Za-z\\d@$!%*?&.;_-]{8,}$"
     );
 
     private final UserRepository userRepository;
@@ -244,7 +244,7 @@ public class AuthService {
         if (!PASSWORD_PATTERN.matcher(password).matches()) {
             throw new IllegalArgumentException(
                 "Password must be at least 8 characters long and contain at least one uppercase letter, " +
-                "one lowercase letter, one digit, and one special character (@$!%*?&)"
+                "one lowercase letter, one digit, and one special character (@$!%*?&.;_-)"
             );
         }
     }
