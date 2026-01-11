@@ -1,6 +1,6 @@
 <template>
   <div class="login-container">
-    <!-- Left Half - Login/Create Account Form -->
+    <!-- Left Half - Registration Form -->
     <div class="login-form-section">
       <div class="form-wrapper">
         <!-- Logo -->
@@ -11,12 +11,48 @@
 
         <!-- Welcome Message -->
         <div class="welcome-message">
-          <h2>Welcome Back</h2>
-          <p>Sign in to continue to your automations</p>
+          <h2>Create Account</h2>
+          <p>Join us to start automating your workflows</p>
         </div>
 
         <!-- Form -->
         <form class="login-form" @submit.prevent="handleSubmit">
+          <!-- Username Field -->
+          <div class="form-group">
+            <label for="username">Username</label>
+            <div class="input-wrapper">
+              <UserIcon size="20" class="input-icon" />
+              <input
+                type="text"
+                id="username"
+                v-model="formData.username"
+                placeholder="Choose a username"
+                required
+                minlength="3"
+                maxlength="50"
+                pattern="[a-zA-Z0-9_-]+"
+                title="Username can only contain letters, numbers, hyphens, and underscores"
+              />
+            </div>
+            <small class="form-hint">3-50 characters. Letters, numbers, hyphens, and underscores only.</small>
+          </div>
+
+          <!-- Full Name Field -->
+          <div class="form-group">
+            <label for="fullName">Full Name</label>
+            <div class="input-wrapper">
+              <UserIcon size="20" class="input-icon" />
+              <input
+                type="text"
+                id="fullName"
+                v-model="formData.fullName"
+                placeholder="Enter your full name"
+                maxlength="255"
+              />
+            </div>
+            <small class="form-hint">Optional</small>
+          </div>
+
           <!-- Email Field -->
           <div class="form-group">
             <label for="email">Email Address</label>
@@ -28,6 +64,7 @@
                 v-model="formData.email"
                 placeholder="Enter your email"
                 required
+                maxlength="255"
               />
             </div>
           </div>
@@ -41,8 +78,10 @@
                 :type="showPassword ? 'text' : 'password'"
                 id="password"
                 v-model="formData.password"
-                placeholder="Enter your password"
+                placeholder="Create a strong password"
                 required
+                minlength="8"
+                maxlength="100"
               />
               <button
                 type="button"
@@ -54,17 +93,41 @@
                 <EyeOffIcon v-else size="20" />
               </button>
             </div>
+            <small class="form-hint">
+              At least 8 characters. Must include uppercase, lowercase, number, and one of: @$!%*?&.;_-
+            </small>
           </div>
 
-          <!-- Remember Me / Forgot Password -->
-          <div class="form-options">
+          <!-- Confirm Password Field -->
+          <div class="form-group">
+            <label for="confirmPassword">Confirm Password</label>
+            <div class="input-wrapper">
+              <LockIcon size="20" class="input-icon" />
+              <input
+                :type="showConfirmPassword ? 'text' : 'password'"
+                id="confirmPassword"
+                v-model="formData.confirmPassword"
+                placeholder="Confirm your password"
+                required
+              />
+              <button
+                type="button"
+                class="toggle-password"
+                @click="showConfirmPassword = !showConfirmPassword"
+                tabindex="-1"
+              >
+                <EyeIcon v-if="!showConfirmPassword" size="20" />
+                <EyeOffIcon v-else size="20" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Terms and Conditions -->
+          <div class="form-group">
             <label class="checkbox-label">
-              <input type="checkbox" v-model="rememberMe" />
-              <span>Remember me</span>
+              <input type="checkbox" v-model="acceptTerms" required />
+              <span>I agree to the <a href="#" @click.prevent>Terms of Service</a> and <a href="#" @click.prevent>Privacy Policy</a></span>
             </label>
-            <a href="#" class="forgot-password" @click.prevent="handleForgotPassword">
-              Forgot password?
-            </a>
           </div>
 
           <!-- Error Message -->
@@ -73,12 +136,18 @@
             <span>{{ error }}</span>
           </div>
 
+          <!-- Success Message -->
+          <div class="success-message" v-if="success">
+            <CheckCircleIcon size="20" />
+            <span>{{ success }}</span>
+          </div>
+
           <!-- Submit Button -->
           <button type="submit" class="submit-btn" :disabled="loading">
-            <span v-if="!loading">Sign In</span>
+            <span v-if="!loading">Create Account</span>
             <span v-else class="loading-spinner">
               <div class="spinner-small"></div>
-              Signing In...
+              Creating Account...
             </span>
           </button>
         </form>
@@ -86,8 +155,8 @@
         <!-- Toggle Login/Signup -->
         <div class="form-toggle">
           <p>
-            Don't have an account?
-            <router-link to="/register">Sign Up</router-link>
+            Already have an account?
+            <router-link to="/login">Sign In</router-link>
           </p>
         </div>
 
@@ -145,14 +214,16 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { ref, reactive } from 'vue';
+import { useRouter } from 'vue-router';
 import {
+  UserIcon,
   MailIcon,
   LockIcon,
   EyeIcon,
   EyeOffIcon,
   AlertCircleIcon,
+  CheckCircleIcon,
   ZapIcon,
   LinkIcon,
   ShieldIcon
@@ -161,19 +232,23 @@ import { useModal } from '../composables/useModal.js';
 import { useAuthStore } from '../stores/authStore.js';
 
 const router = useRouter();
-const route = useRoute();
 const modal = useModal();
 const authStore = useAuthStore();
 
 // State
 const showPassword = ref(false);
-const rememberMe = ref(false);
+const showConfirmPassword = ref(false);
+const acceptTerms = ref(false);
 const loading = ref(false);
 const error = ref('');
+const success = ref('');
 
 const formData = reactive({
+  username: '',
+  fullName: '',
   email: '',
-  password: ''
+  password: '',
+  confirmPassword: ''
 });
 
 const features = [
@@ -194,42 +269,73 @@ const features = [
   }
 ];
 
-// Check for pre-filled email from registration redirect
-onMounted(() => {
-  if (route.query.email) {
-    formData.email = route.query.email;
-  }
-});
-
 // Methods
-async function handleSubmit() {
+function validateForm() {
+  // Reset errors
   error.value = '';
+
+  // Check password match
+  if (formData.password !== formData.confirmPassword) {
+    error.value = 'Passwords do not match';
+    return false;
+  }
+
+  // Validate password strength (backend will also validate)
+  // Password must only contain characters from: A-Z, a-z, 0-9, @$!%*?&.;_-
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&.;_-])[A-Za-z\d@$!%*?&.;_-]{8,}$/;
+  if (!passwordRegex.test(formData.password)) {
+    error.value = 'Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one digit, and one special character (@$!%*?&.;_-)';
+    return false;
+  }
+
+  // Validate username format
+  const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+  if (!usernameRegex.test(formData.username)) {
+    error.value = 'Username can only contain letters, numbers, hyphens, and underscores';
+    return false;
+  }
+
+  if (!acceptTerms.value) {
+    error.value = 'You must accept the Terms of Service and Privacy Policy';
+    return false;
+  }
+
+  return true;
+}
+
+async function handleSubmit() {
+  if (!validateForm()) {
+    return;
+  }
+
+  error.value = '';
+  success.value = '';
   loading.value = true;
 
   try {
-    // Login
-    await authStore.login(formData.email, formData.password);
+    // Register user
+    await authStore.register({
+      email: formData.email,
+      username: formData.username,
+      password: formData.password,
+      fullName: formData.fullName || undefined
+    });
 
-    // Store remember me preference
-    if (rememberMe.value) {
-      localStorage.setItem('rememberMe', 'true');
-    }
+    // Show success message
+    success.value = 'Account created successfully! Redirecting to login...';
 
-    // Navigate to intended destination or dashboard
-    const redirectPath = route.query.redirect || '/dashboard';
-    router.push(redirectPath);
+    // Redirect to login page with email pre-filled after 2 seconds
+    setTimeout(() => {
+      router.push({
+        name: 'login',
+        query: { email: formData.email }
+      });
+    }, 2000);
   } catch (err) {
-    error.value = err.message || 'An error occurred. Please try again.';
+    error.value = err.message || 'Registration failed. Please try again.';
   } finally {
     loading.value = false;
   }
-}
-
-async function handleForgotPassword() {
-  await modal.alert('Password reset functionality coming soon!', {
-    title: 'Coming Soon',
-    variant: 'info'
-  });
 }
 
 function handleSocialLogin(provider) {
@@ -240,4 +346,34 @@ function handleSocialLogin(provider) {
 }
 </script>
 
-<style scoped src="../assets/LoginView.css"></style>
+<style scoped src="../assets/LoginView.css">
+/* Reusing LoginView styles */
+</style>
+
+<style scoped>
+/* Additional styles for success message */
+.success-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 8px;
+  color: #22c55e;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.form-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #6b7280);
+}
+
+/* Dark mode support */
+[data-theme='dark'] .form-hint {
+  color: #9ca3af;
+}
+</style>
