@@ -55,7 +55,7 @@ public class DiscordIntegration implements ServiceIntegration {
                     new FieldDefinition(
                         "messageTemplate",
                         "Message Template",
-                        "text",
+                        "textarea",
                         false,
                         "Custom message template. Use placeholders like {subject}, {from}, {snippet}"
                     ),
