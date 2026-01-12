@@ -4,6 +4,63 @@
 const API_URL = import.meta.env.VITE_API_URL || '';
 
 /**
+ * Get authorization headers with access token if available
+ * @returns {Object} Headers object with Authorization header if token exists
+ */
+function getAuthHeaders() {
+  const accessToken = localStorage.getItem('accessToken');
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  return headers;
+}
+
+/**
+ * Make an authenticated API request
+ * Automatically includes JWT token in Authorization header
+ * @param {string} url - API endpoint URL
+ * @param {Object} options - Fetch options
+ * @returns {Promise<Object>} API response data
+ */
+async function authenticatedFetch(url, options = {}) {
+  const headers = getAuthHeaders();
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers,
+    },
+  });
+
+  // Handle 401 Unauthorized - token expired or invalid
+  if (response.status === 401) {
+    // Clear authentication data
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('tokenExpiry');
+
+    // Redirect to login page
+    window.location.href = '/login';
+    throw new Error('Session expired. Please login again.');
+  }
+
+  if (!response.ok) {
+    const errorResult = await response.json();
+    unwrapApiResponse(errorResult); // Will throw with proper message
+  }
+
+  const result = await response.json();
+  return unwrapApiResponse(result);
+}
+
+/**
  * Unwraps the API response from backend.
  * Handles both the new ApiResponse<T> wrapper format and legacy formats.
  * Throws error if response indicates failure.
@@ -388,8 +445,13 @@ export const api = {
   },
 
   // Authentication methods
+  /**
+   * Login with email and password
+   * @param {Object} credentials - { email, password }
+   * @returns {Promise<Object>} AuthResponse with accessToken, refreshToken, user, expiresIn
+   */
   async login(credentials) {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
+    const response = await fetch(`${API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -402,15 +464,16 @@ export const api = {
     }
     const result = await response.json();
     const data = unwrapApiResponse(result);
-    // Store token if provided
-    if (data.token) {
-      localStorage.setItem('authToken', data.token);
-    }
     return data;
   },
 
+  /**
+   * Register a new user account
+   * @param {Object} userData - { email, username, password, fullName }
+   * @returns {Promise<Object>} AuthResponse with accessToken, refreshToken, user, expiresIn
+   */
   async register(userData) {
-    const response = await fetch(`${API_URL}/api/auth/register`, {
+    const response = await fetch(`${API_URL}/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -426,9 +489,71 @@ export const api = {
     return data;
   },
 
-  async logout() {
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('rememberMe');
+  /**
+   * Logout by revoking the refresh token
+   * @param {Object} logoutData - { refreshToken }
+   * @returns {Promise<void>}
+   */
+  async logout(logoutData) {
+    const response = await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(logoutData),
+    });
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+  },
+
+  /**
+   * Get current authenticated user information
+   * Requires valid access token
+   * @returns {Promise<Object>} UserResponse with id, email, username, fullName, etc.
+   */
+  async getCurrentUser() {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
+
+    const response = await fetch(`${API_URL}/auth/me`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
+  },
+
+  /**
+   * Refresh access token using refresh token
+   * @param {Object} refreshData - { refreshToken }
+   * @returns {Promise<Object>} AuthResponse with new accessToken
+   */
+  async refreshToken(refreshData) {
+    const response = await fetch(`${API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(refreshData),
+    });
+    if (!response.ok) {
+      const errorResult = await response.json();
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
   },
 
   // Service Discovery API methods (Phase 2)
