@@ -88,8 +88,9 @@
               v-model="localConfig[field.name]"
               :placeholder="field.placeholder || ''"
               :required="field.required"
-              :rows="field.rows || 4"
+              :rows="field.rows || 5"
               class="form-textarea"
+              @focus="handleTextareaFocus(field.name)"
             ></textarea>
 
             <!-- Select -->
@@ -116,17 +117,21 @@
 
         <!-- Available Variables (if this is an action) -->
         <div v-if="availableVariables && availableVariables.length > 0" class="available-vars">
-          <strong>Available variables:</strong>
+          <div class="vars-header">
+            <strong>Template Variables</strong>
+            <small>Click to insert into your message</small>
+          </div>
           <div class="var-tags">
             <span
               v-for="varName in availableVariables"
               :key="varName"
               class="var-tag"
               @click="insertVariable(varName)"
-              :title="`Click to insert {{${varName}}}`"
-              v-text="`{{${varName}}}`"
+              :title="`Click to insert {${varName}} into your message`"
+              v-text="`{${varName}}`"
             ></span>
           </div>
+          <p class="vars-hint">These placeholders will be replaced with actual values when the workflow runs.</p>
         </div>
 
         <!-- Action Buttons -->
@@ -234,6 +239,12 @@ function handleCancel() {
   emit('cancel')
 }
 
+const lastFocusedTextarea = ref(null)
+
+function handleTextareaFocus(fieldName) {
+  lastFocusedTextarea.value = fieldName
+}
+
 function insertVariable(varName) {
   // Find the last focused textarea or input in the form
   const form = document.activeElement
@@ -241,7 +252,7 @@ function insertVariable(varName) {
     const start = form.selectionStart
     const end = form.selectionEnd
     const text = form.value
-    const variable = `{{${varName}}}`
+    const variable = `{${varName}}`
 
     form.value = text.substring(0, start) + variable + text.substring(end)
 
@@ -449,7 +460,9 @@ function insertVariable(varName) {
 
 .form-textarea {
   resize: vertical;
-  min-height: 80px;
+  min-height: 120px;
+  line-height: 1.5;
+  font-family: inherit;
 }
 
 .form-hint {
@@ -460,17 +473,29 @@ function insertVariable(varName) {
 
 /* Available Variables */
 .available-vars {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-default);
+  background: linear-gradient(135deg, rgba(91, 155, 213, 0.05), rgba(138, 92, 246, 0.05));
+  border: 1px solid rgba(91, 155, 213, 0.3);
   border-radius: var(--radius-md);
   padding: var(--space-md);
 }
 
-.available-vars strong {
-  display: block;
-  font-size: 0.85rem;
-  color: var(--color-text-secondary);
+.vars-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
   margin-bottom: var(--space-sm);
+}
+
+.vars-header strong {
+  font-size: 0.9rem;
+  color: var(--color-text-primary);
+  font-weight: 600;
+}
+
+.vars-header small {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: normal;
 }
 
 .var-tags {
@@ -496,6 +521,14 @@ function insertVariable(varName) {
   background: var(--color-accent-purple);
   transform: translateY(-1px);
   box-shadow: var(--shadow-sm);
+}
+
+.vars-hint {
+  margin: var(--space-sm) 0 0 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+  line-height: 1.4;
 }
 
 /* Action Buttons */

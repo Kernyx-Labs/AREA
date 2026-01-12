@@ -173,14 +173,14 @@ let actionIdCounter = 1
 
 // Compute available variables from trigger
 const availableVariables = computed(() => {
-  if (!trigger.value || !trigger.value.configFields) {
+  if (!trigger.value || !trigger.value.serviceName) {
     return []
   }
 
   // Extract variable names from trigger
-  // In a real implementation, this would come from the service definition
+  // These variables are available in the backend when processing the action/reaction
   const serviceVariables = {
-    Gmail: ['sender', 'subject', 'body', 'unreadCount', 'receivedAt'],
+    Gmail: ['subject', 'from', 'body', 'label', 'snippet', 'messageId', 'threadId'],
     GitHub: ['author', 'title', 'url', 'repository', 'action'],
     Timer: ['timestamp', 'date', 'time'],
     Discord: ['username', 'content', 'channelId', 'messageId']

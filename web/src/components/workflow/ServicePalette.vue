@@ -272,11 +272,15 @@ async function loadServices() {
         description: service.description,
         actions: service.actions || [],
         reactions: (service.reactions || []).map(reaction => {
-          // For Discord reactions, filter out channelId field since it's auto-populated from ServiceConnection
+          // For Discord reactions, filter out fields that are auto-populated from ServiceConnection
           if (service.type === 'DISCORD' && reaction.configFields) {
             return {
               ...reaction,
-              configFields: reaction.configFields.filter(field => field.name !== 'channelId')
+              configFields: reaction.configFields.filter(field =>
+                field.name !== 'channelId' &&
+                field.name !== 'webhookUrl' &&
+                field.name !== 'webhook'
+              )
             }
           }
           return reaction

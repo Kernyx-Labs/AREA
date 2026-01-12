@@ -223,7 +223,7 @@ async function saveAsArea(workflowData) {
     gmailFromAddress: triggerConfig.senderFilter || '',
     discordChannelId: discordChannelId, // Use channelId from ServiceConnection
     discordChannelName: actionConfig.channelName || 'general',
-    discordMessageTemplate: actionConfig.message || 'New email: {{subject}}'
+    discordMessageTemplate: actionConfig.message || actionConfig.messageTemplate || 'New email from {from}\nSubject: {subject}'
   }
 
   await api.createArea(areaData)

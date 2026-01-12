@@ -22,7 +22,8 @@ function getAuthHeaders() {
 
 /**
  * Make an authenticated API request
- * Automatically includes JWT token in Authorization header
+ * Automatically includes JWT token in Authorization header if available
+ * Works for both authenticated and unauthenticated scenarios
  * @param {string} url - API endpoint URL
  * @param {Object} options - Fetch options
  * @returns {Promise<Object>} API response data
@@ -40,20 +41,31 @@ async function authenticatedFetch(url, options = {}) {
 
   // Handle 401 Unauthorized - token expired or invalid
   if (response.status === 401) {
-    // Clear authentication data
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('tokenExpiry');
+    const accessToken = localStorage.getItem('accessToken');
 
-    // Redirect to login page
-    window.location.href = '/login';
-    throw new Error('Session expired. Please login again.');
+    // Only redirect if user was previously authenticated
+    if (accessToken) {
+      // Clear authentication data
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('tokenExpiry');
+
+      // Redirect to login page
+      window.location.href = '/login';
+      throw new Error('Session expired. Please login again.');
+    }
+
+    // If no token was present, let the error propagate normally
+    throw new Error('Authentication required');
   }
 
   if (!response.ok) {
-    const errorResult = await response.json();
-    unwrapApiResponse(errorResult); // Will throw with proper message
+    const errorResult = await response.json().catch(() => ({}));
+    if (errorResult.success === false || errorResult.error || errorResult.message) {
+      unwrapApiResponse(errorResult); // Will throw with proper message
+    }
+    throw new Error(`Request failed with status ${response.status}`);
   }
 
   const result = await response.json();
@@ -105,18 +117,7 @@ export const api = {
 
   // Get connected services
   async getConnectedServices() {
-    const response = await fetch(`${API_URL}/api/service-connections`);
-    if (!response.ok) throw new Error('Failed to fetch connected services');
-    const result = await response.json();
-
-    // Handle plain array response (legacy format)
-    if (Array.isArray(result)) {
-      return result;
-    }
-
-    // Handle wrapped response
-    const data = unwrapApiResponse(result);
-    return Array.isArray(data) ? data : (data.connections || []);
+    return await authenticatedFetch(`${API_URL}/api/service-connections`);
   },
 
   // Get Gmail OAuth URL
@@ -130,106 +131,60 @@ export const api = {
 
   // Disconnect service
   async disconnectService(connectionId) {
-    const response = await fetch(`${API_URL}/api/service-connections/${connectionId}`, {
+    await authenticatedFetch(`${API_URL}/api/service-connections/${connectionId}`, {
       method: 'DELETE',
     });
-    if (!response.ok) throw new Error('Failed to disconnect service');
   },
 
   // Refresh service token (Gmail)
   async refreshServiceToken(connectionId) {
-    const response = await fetch(`${API_URL}/api/service-connections/${connectionId}/refresh`, {
+    return await authenticatedFetch(`${API_URL}/api/service-connections/${connectionId}/refresh`, {
       method: 'POST',
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    return data;
   },
 
   // Discord connection methods
   async connectDiscord(botToken, channelId) {
-    const response = await fetch(`${API_URL}/api/services/discord/connect`, {
+    return await authenticatedFetch(`${API_URL}/api/services/discord/connect`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ botToken, channelId }),
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    return data;
   },
 
   async testDiscordConnection(botToken, channelId) {
-    const response = await fetch(`${API_URL}/api/services/discord/test`, {
+    return await authenticatedFetch(`${API_URL}/api/services/discord/test`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ botToken, channelId }),
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    return data;
   },
 
   // Dashboard statistics
   async getDashboardStats() {
-    const response = await fetch(`${API_URL}/api/dashboard/stats`);
-    if (!response.ok) throw new Error('Failed to fetch dashboard statistics');
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    // Backend returns { success: true, stats: {...} }
-    // unwrapApiResponse extracts the data which is { stats: {...} }
+    const data = await authenticatedFetch(`${API_URL}/api/dashboard/stats`);
+    // Backend returns { stats: {...} } after unwrapping
     return data.stats || data;
   },
 
   // Get all areas
   async getAreas(activeOnly = false) {
     const url = activeOnly ? `${API_URL}/api/areas?activeOnly=true` : `${API_URL}/api/areas`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch areas');
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
+    const data = await authenticatedFetch(url);
     return data.areas || [];
   },
 
   // Create a new area (Gmail → Discord)
   async createArea(areaData) {
-    const response = await fetch(`${API_URL}/api/areas`, {
+    return await authenticatedFetch(`${API_URL}/api/areas`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(areaData),
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    return data; // Area object is directly in data
   },
 
   // Delete an area
   async deleteArea(id) {
-    const response = await fetch(`${API_URL}/api/areas/${id}`, {
+    await authenticatedFetch(`${API_URL}/api/areas/${id}`, {
       method: 'DELETE',
     });
-    if (!response.ok) throw new Error('Failed to delete area');
   },
 
   // Toggle area status
@@ -239,126 +194,68 @@ export const api = {
     const newStatus = !currentArea.active;
 
     // Use the correct endpoint: PUT /api/areas/{id}/status
-    const response = await fetch(`${API_URL}/api/areas/${id}/status`, {
+    return await authenticatedFetch(`${API_URL}/api/areas/${id}/status`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ active: newStatus }),
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    return data; // Area object
   },
 
   // Get a specific area by ID
   async getArea(id) {
-    const response = await fetch(`${API_URL}/api/areas/${id}`);
-    if (!response.ok) throw new Error('Failed to fetch area');
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    return data;
+    return await authenticatedFetch(`${API_URL}/api/areas/${id}`);
   },
 
   // Workflow methods
   async getWorkflows(activeOnly = false) {
     const url = activeOnly ? `${API_URL}/api/workflows?activeOnly=true` : `${API_URL}/api/workflows`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch workflows');
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
+    const data = await authenticatedFetch(url);
     return data.workflows || [];
   },
 
   async getWorkflow(id) {
-    const response = await fetch(`${API_URL}/api/workflows/${id}`);
-    if (!response.ok) throw new Error('Failed to fetch workflow');
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
+    const data = await authenticatedFetch(`${API_URL}/api/workflows/${id}`);
     return data.workflow;
   },
 
   async createWorkflow(workflowData) {
-    const response = await fetch(`${API_URL}/api/workflows`, {
+    const data = await authenticatedFetch(`${API_URL}/api/workflows`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(workflowData),
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
     return data.workflow;
   },
 
   async getWorkflowStats(id) {
-    const response = await fetch(`${API_URL}/api/workflows/${id}/stats`);
-    if (!response.ok) throw new Error('Failed to fetch workflow stats');
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
+    const data = await authenticatedFetch(`${API_URL}/api/workflows/${id}/stats`);
     return data.stats;
   },
 
   async updateWorkflow(id, workflowData) {
-    const response = await fetch(`${API_URL}/api/workflows/${id}`, {
+    const data = await authenticatedFetch(`${API_URL}/api/workflows/${id}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify(workflowData),
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
     return data.workflow;
   },
 
   async updateWorkflowStatus(id, active) {
-    const response = await fetch(`${API_URL}/api/workflows/${id}/status`, {
+    const data = await authenticatedFetch(`${API_URL}/api/workflows/${id}/status`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ active }),
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
     return data.workflow;
   },
 
   async deleteWorkflow(id) {
-    const response = await fetch(`${API_URL}/api/workflows/${id}`, {
+    await authenticatedFetch(`${API_URL}/api/workflows/${id}`, {
       method: 'DELETE',
     });
-    if (!response.ok) throw new Error('Failed to delete workflow');
   },
 
   async executeWorkflow(id) {
-    const response = await fetch(`${API_URL}/api/workflows/${id}/execute`, {
+    return await authenticatedFetch(`${API_URL}/api/workflows/${id}/execute`, {
       method: 'POST',
     });
-    if (!response.ok) {
-      const errorResult = await response.json();
-      unwrapApiResponse(errorResult); // Will throw with proper message
-    }
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    return data;
   },
 
   async getAvailableNodes() {
@@ -375,12 +272,7 @@ export const api = {
     const url = queryParams
       ? `${API_URL}/api/areas/${areaId}/logs?${queryParams}`
       : `${API_URL}/api/areas/${areaId}/logs`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Failed to fetch logs');
-    const result = await response.json();
-    const data = unwrapApiResponse(result);
-    // Return the full data object with logs, pagination
-    return data;
+    return await authenticatedFetch(url);
   },
 
   // Get all logs across all areas
