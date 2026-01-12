@@ -250,22 +250,24 @@ flutter run
 
 ### Discord Service
 **Reactions:**
-- Send message to Discord webhook
+- Send message to Discord channel (via bot)
+- Send rich embed with formatting
+- Send batch notifications
 
 
 ## Example AREA Workflows
 
-1. **Daily Standup Reminder**
+1. **Gmail to Discord Notifications**
+   - Action: Gmail - New email received
+   - Reaction: Discord - Send message with email details
+
+2. **Daily Standup Reminder**
    - Action: Timer - Every day at 09:00
-   - Reaction: Discord - Send message to webhook
+   - Reaction: Discord - Send reminder message
 
-2. **GitHub to Discord Notifications**
-   - Action: GitHub - New issue created
-   - Reaction: Discord - Send notification
-
-3. **Email to GitHub Issue**
-   - Action: Gmail - Email received with specific subject
-   - Reaction: GitHub - Create issue from email content
+3. **Email Alerts to Discord**
+   - Action: Gmail - Email from specific sender
+   - Reaction: Discord - Send formatted alert
 
 ## 🤝 Contributing
 

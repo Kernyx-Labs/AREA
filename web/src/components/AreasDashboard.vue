@@ -57,30 +57,6 @@
       <div v-else class="loading-stats">Loading statistics...</div>
     </div>
 
-    <!-- Recent Activity -->
-    <div class="activity-section" v-if="stats.recentActivity && stats.recentActivity.length > 0">
-      <h2>Recent Activity</h2>
-      <div class="activity-list">
-        <div
-          v-for="activity in stats.recentActivity"
-          :key="activity.id"
-          class="activity-item"
-          :class="{ 'success': activity.success, 'failed': !activity.success }"
-        >
-          <div class="activity-icon">
-            {{ activity.success ? '✓' : '✗' }}
-          </div>
-          <div class="activity-details">
-            <div class="activity-message">{{ activity.message }}</div>
-            <div class="activity-time">{{ formatTime(activity.executedAt) }}</div>
-          </div>
-          <div class="activity-status">
-            {{ activity.status }}
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- Areas List -->
     <div class="heading-row">
       <div>
@@ -216,8 +192,10 @@ import { ref, onMounted } from 'vue';
 import { PlusIcon, ChartBarIcon, PowerIcon, EditIcon, TrashIcon, XIcon, PlayIcon } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { api } from '../services/api.js';
+import { useModal } from '../composables/useModal.js';
 
 const router = useRouter();
+const modal = useModal();
 
 const stats = ref({});
 const areas = ref([]);
@@ -334,12 +312,25 @@ async function toggleArea(area) {
     loadDashboard();
   } catch (error) {
     console.error('Failed to toggle area/workflow:', error);
-    alert('Failed to update status: ' + error.message);
+    await modal.alert('Failed to update status: ' + error.message, {
+      title: 'Error',
+      variant: 'error'
+    });
   }
 }
 
 async function deleteArea(area) {
-  if (!confirm(`Are you sure you want to delete "${area.name}"? This action cannot be undone.`)) {
+  const confirmed = await modal.confirm(
+    `Are you sure you want to delete "${area.name}"? This action cannot be undone.`,
+    {
+      title: 'Delete Workflow',
+      variant: 'danger',
+      confirmText: 'Delete',
+      cancelText: 'Cancel'
+    }
+  );
+
+  if (!confirmed) {
     return;
   }
 
@@ -359,24 +350,59 @@ async function deleteArea(area) {
     loadDashboard();
   } catch (error) {
     console.error('Failed to delete area/workflow:', error);
-    alert('Failed to delete: ' + error.message);
+    await modal.alert('Failed to delete: ' + error.message, {
+      title: 'Error',
+      variant: 'error'
+    });
   }
 }
 
 async function testWorkflow(area) {
-  if (!confirm(`Execute "${area.name}" now for testing?`)) {
+  const confirmed = await modal.confirm(
+    `Execute "${area.name}" now for testing?`,
+    {
+      title: 'Test Workflow',
+      variant: 'info',
+      confirmText: 'Execute',
+      cancelText: 'Cancel'
+    }
+  );
+
+  if (!confirmed) {
     return;
   }
 
   try {
-    const result = await api.executeWorkflow(area.id);
-    alert(`✓ ${result.message || 'Workflow executed successfully!'}\n\nCheck the stats to see the execution result.`);
+    // Only workflows can be executed, not legacy areas
+    if (area.type !== 'workflow') {
+      await modal.alert(
+        'Only workflows can be manually executed. Legacy areas run automatically on schedule.',
+        {
+          title: 'Information',
+          variant: 'info'
+        }
+      );
+      return;
+    }
+
+    // Use the real ID (without the 'workflow-' prefix)
+    const result = await api.executeWorkflow(area.realId);
+    await modal.alert(
+      `${result.message || 'Workflow executed successfully!'}\n\nCheck the stats to see the execution result.`,
+      {
+        title: 'Success',
+        variant: 'success'
+      }
+    );
 
     // Reload to show updated execution in stats
     loadDashboard();
   } catch (error) {
     console.error('Failed to execute workflow:', error);
-    alert('Failed to execute workflow: ' + error.message);
+    await modal.alert('Failed to execute workflow: ' + error.message, {
+      title: 'Error',
+      variant: 'error'
+    });
   }
 }
 
@@ -388,7 +414,10 @@ async function viewStats(areaId) {
     currentStats.value = await api.getWorkflowStats(areaId);
   } catch (error) {
     console.error('Failed to load stats:', error);
-    alert('Failed to load statistics: ' + error.message);
+    await modal.alert('Failed to load statistics: ' + error.message, {
+      title: 'Error',
+      variant: 'error'
+    });
   } finally {
     loadingModalStats.value = false;
   }

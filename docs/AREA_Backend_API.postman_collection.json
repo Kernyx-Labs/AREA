@@ -1,0 +1,974 @@
+{
+	"info": {
+		"_postman_id": "area-backend-api-collection",
+		"name": "AREA Backend API",
+		"description": "Complete collection of AREA backend API endpoints for testing actions, reactions, service connections, and workflows.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.accessToken) {",
+									"        pm.environment.set('access_token', jsonData.data.accessToken);",
+									"        pm.environment.set('refresh_token', jsonData.data.refreshToken);",
+									"        console.log('Tokens saved to environment');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"username\": \"testuser\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Test User\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/register",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "register"]
+						},
+						"description": "Register a new user account.\n\n**Password Requirements:**\n- At least 8 characters\n- At least one uppercase letter\n- At least one lowercase letter\n- At least one digit\n- At least one special character (@$!%*?&)\n\n**Returns:**\n- Access token (JWT, 1 hour expiry)\n- Refresh token (JWT, 7 days expiry)\n- User information"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.accessToken) {",
+									"        pm.environment.set('access_token', jsonData.data.accessToken);",
+									"        pm.environment.set('refresh_token', jsonData.data.refreshToken);",
+									"        console.log('Tokens saved to environment');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Test@1234\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						},
+						"description": "Login with email and password.\n\n**Security Features:**\n- Account locks after 5 failed login attempts\n- Failed attempts are reset on successful login\n- Last login time is tracked\n\n**Returns:**\n- Access token (JWT, 1 hour expiry)\n- Refresh token (JWT, 7 days expiry)\n- User information"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.data && jsonData.data.accessToken) {",
+									"        pm.environment.set('access_token', jsonData.data.accessToken);",
+									"        console.log('Access token refreshed');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/refresh",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "refresh"]
+						},
+						"description": "Refresh access token using a valid refresh token.\n\nUse this when the access token expires (after 1 hour) to get a new one without requiring the user to login again.\n\n**Returns:**\n- New access token\n- Same refresh token (still valid)\n- User information"
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "logout"]
+						},
+						"description": "Logout by revoking the refresh token.\n\nThis invalidates the refresh token so it cannot be used to obtain new access tokens. The current access token remains valid until it expires.\n\n**Best Practice:**\n- Clear tokens from client storage\n- Revoke refresh token on server"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "me"]
+						},
+						"description": "Get current authenticated user information.\n\nRequires a valid access token in the Authorization header.\n\n**Returns:**\n- User ID\n- Email\n- Username\n- Full name\n- Email verification status\n- Account creation date"
+					},
+					"response": []
+				}
+			],
+			"description": "User authentication endpoints including registration, login, token refresh, logout, and user profile retrieval.\n\n**Authentication Flow:**\n1. Register or Login to get access and refresh tokens\n2. Use access token in Authorization header for protected endpoints\n3. When access token expires (1 hour), use refresh token to get a new one\n4. Refresh tokens are valid for 7 days\n\n**Token Format:**\nAll requests to protected endpoints must include:\n```\nAuthorization: Bearer <access_token>\n```"
+		},
+		{
+			"name": "About",
+			"item": [
+				{
+					"name": "Get About Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/about.json",
+							"host": ["{{base_url}}"],
+							"path": ["about.json"]
+						},
+						"description": "Returns information about the server, available services (Gmail, Discord), and client details."
+					},
+					"response": []
+				}
+			],
+			"description": "General information about the AREA platform and available services."
+		},
+		{
+			"name": "Dashboard",
+			"item": [
+				{
+					"name": "Get Dashboard Stats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/dashboard/stats",
+							"host": ["{{base_url}}"],
+							"path": ["api", "dashboard", "stats"]
+						},
+						"description": "Returns comprehensive dashboard statistics including:\n- Total/active/inactive areas\n- Connected services count\n- Executions in last 24 hours\n- Success rate\n- Execution trend (last 7 days)\n- Top 5 most active areas\n- Recent activity (last 10 executions)"
+					},
+					"response": []
+				}
+			],
+			"description": "Dashboard statistics and metrics for monitoring AREA platform activity."
+		},
+		{
+			"name": "Logs",
+			"item": [
+				{
+					"name": "Get Global Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/logs?page=0&size=20&areaId=&status=&startDate=&endDate=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "logs"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0",
+									"description": "Page number (0-indexed, default: 0)"
+								},
+								{
+									"key": "size",
+									"value": "20",
+									"description": "Page size (max 100, default: 20)"
+								},
+								{
+									"key": "areaId",
+									"value": "",
+									"description": "Filter by specific area ID (optional)"
+								},
+								{
+									"key": "status",
+									"value": "",
+									"description": "Filter by execution status: SUCCESS, FAILURE, SKIPPED (optional)"
+								},
+								{
+									"key": "startDate",
+									"value": "",
+									"description": "Filter logs after this date (ISO format: 2024-01-01T00:00:00Z) (optional)"
+								},
+								{
+									"key": "endDate",
+									"value": "",
+									"description": "Filter logs before this date (ISO format: 2024-12-31T23:59:59Z) (optional)"
+								}
+							]
+						},
+						"description": "Retrieves execution logs from all areas with comprehensive filtering and pagination.\n\n**Features:**\n- Aggregates logs across all areas\n- Filter by area, status, and date range\n- Validated pagination (max 100 items per page)\n- Sorted by execution time (newest first)\n\n**Use Cases:**\n- Dedicated logs page with filtering\n- Activity monitoring across all workflows\n- Debugging specific time periods\n- Status-based log analysis\n\n**Performance:**\n- Uses database indexes for fast queries\n- Efficient pagination\n- No memory overhead from loading all data"
+					},
+					"response": []
+				}
+			],
+			"description": "Global execution logs with filtering and pagination for monitoring activity across all areas."
+		},
+		{
+			"name": "Areas (AREAs)",
+			"item": [
+				{
+					"name": "Create Area",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"actionConnectionId\": 1,\n  \"reactionConnectionId\": 2,\n  \"gmailLabel\": \"INBOX\",\n  \"gmailSubjectContains\": \"important\",\n  \"gmailFromAddress\": \"example@gmail.com\",\n  \"discordWebhookUrl\": \"https://discord.com/api/webhooks/123456789/abcdefg\",\n  \"discordChannelName\": \"notifications\",\n  \"discordMessageTemplate\": \"New email from {from}: {subject}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/areas",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas"]
+						},
+						"description": "Creates a new AREA (Action-REAction) workflow. Connects a Gmail action with a Discord reaction.\n\n**Required Fields:**\n- `actionConnectionId`: ID of Gmail service connection\n- `reactionConnectionId`: ID of Discord service connection\n\n**Optional Gmail Filters:**\n- `gmailLabel`: Filter by label (e.g., \"INBOX\", \"IMPORTANT\")\n- `gmailSubjectContains`: Filter by subject keyword\n- `gmailFromAddress`: Filter by sender email\n\n**Discord Configuration:**\n- `discordWebhookUrl`: Discord webhook URL\n- `discordChannelName`: Channel name for display\n- `discordMessageTemplate`: Message template with placeholders"
+					},
+					"response": []
+				},
+				{
+					"name": "List All Areas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas?activeOnly=false",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas"],
+							"query": [
+								{
+									"key": "activeOnly",
+									"value": "false",
+									"description": "Filter to show only active areas"
+								}
+							]
+						},
+						"description": "Lists all AREA workflows. Use `activeOnly=true` to filter only active areas."
+					},
+					"response": []
+				},
+				{
+					"name": "List Active Areas Only",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas?activeOnly=true",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas"],
+							"query": [
+								{
+									"key": "activeOnly",
+									"value": "true"
+								}
+							]
+						},
+						"description": "Lists only active AREA workflows."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Area by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}"]
+						},
+						"description": "Retrieves details of a specific AREA by ID including configurations and trigger state."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Area Status",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}", "status"]
+						},
+						"description": "Activates or deactivates an AREA. Set `active` to true to enable or false to disable."
+					},
+					"response": []
+				},
+				{
+					"name": "Toggle Area Status",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}/toggle",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}", "toggle"]
+						},
+						"description": "Toggles an AREA's active status. If the area is currently active, it becomes inactive, and vice versa. No request body needed - automatically flips the current state.\n\n**Benefits:**\n- Single API call to flip status\n- No need to know current state\n- Simpler frontend implementation"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Area",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}"]
+						},
+						"description": "Permanently deletes an AREA and all associated execution logs."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Area Execution Logs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}/logs?page=0&size=20&sortBy=executedAt&sortDirection=DESC",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}", "logs"],
+							"query": [
+								{
+									"key": "page",
+									"value": "0",
+									"description": "Page number (0-indexed)"
+								},
+								{
+									"key": "size",
+									"value": "20",
+									"description": "Page size (max 100)"
+								},
+								{
+									"key": "sortBy",
+									"value": "executedAt",
+									"description": "Field to sort by"
+								},
+								{
+									"key": "sortDirection",
+									"value": "DESC",
+									"description": "ASC or DESC"
+								}
+							]
+						},
+						"description": "Retrieves paginated execution logs for an AREA with details about each execution including status, messages sent, and errors."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Area Trigger State",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/areas/{{area_id}}/state",
+							"host": ["{{base_url}}"],
+							"path": ["api", "areas", "{{area_id}}", "state"]
+						},
+						"description": "Retrieves the current trigger state for an AREA including:\n- Last unread count\n- Last processed message ID\n- Last check time\n- Last trigger time\n- Consecutive failures count\n- Last error message"
+					},
+					"response": []
+				}
+			],
+			"description": "AREA (Action-REAction) workflow management - create, list, update, delete, and monitor workflows."
+		},
+		{
+			"name": "Service Connections",
+			"item": [
+				{
+					"name": "List All Service Connections",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/service-connections",
+							"host": ["{{base_url}}"],
+							"path": ["api", "service-connections"]
+						},
+						"description": "Lists all service connections (Gmail, Discord) with authentication details."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Service Connection (Manual)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"type\": \"GMAIL\",\n  \"accessToken\": \"ya29.a0AfH6SMBx...\",\n  \"refreshToken\": \"1//0gXXX...\",\n  \"expiresInSeconds\": 3600,\n  \"metadata\": \"{\\\"email\\\":\\\"user@gmail.com\\\"}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/service-connections",
+							"host": ["{{base_url}}"],
+							"path": ["api", "service-connections"]
+						},
+						"description": "Manually creates a service connection. Note: Use the OAuth flows (Gmail) or bot token flow (Discord) instead."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Service Connection",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/service-connections/{{connection_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "service-connections", "{{connection_id}}"]
+						},
+						"description": "Deletes a service connection. This will affect all AREAs using this connection."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh OAuth Token",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/service-connections/{{connection_id}}/refresh",
+							"host": ["{{base_url}}"],
+							"path": ["api", "service-connections", "{{connection_id}}", "refresh"]
+						},
+						"description": "Manually refreshes the OAuth token for a Gmail connection. Only works for Gmail connections."
+					},
+					"response": []
+				}
+			],
+			"description": "Service connection management for OAuth tokens and bot credentials."
+		},
+		{
+			"name": "Gmail Service",
+			"item": [
+				{
+					"name": "Get Gmail Auth URL",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/gmail/auth-url",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "gmail", "auth-url"]
+						},
+						"description": "Returns the Google OAuth URL to start the Gmail authentication flow. Users should visit this URL in their browser."
+					},
+					"response": []
+				},
+				{
+					"name": "Gmail OAuth Callback",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/gmail/callback?code=4/0AX4XfWh...",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "gmail", "callback"],
+							"query": [
+								{
+									"key": "code",
+									"value": "4/0AX4XfWh...",
+									"description": "Authorization code from Google"
+								}
+							]
+						},
+						"description": "OAuth callback endpoint. Google redirects here after user authorization. Do not call this manually - it's handled by the OAuth flow."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Gmail Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/gmail/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "gmail", "status"]
+						},
+						"description": "Checks if Gmail OAuth is properly configured and returns the count of existing Gmail connections."
+					},
+					"response": []
+				}
+			],
+			"description": "Gmail OAuth authentication and status endpoints."
+		},
+		{
+			"name": "Discord Service",
+			"item": [
+				{
+					"name": "Get Discord Connection Info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/discord/info",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "discord", "info"]
+						},
+						"description": "Returns instructions for setting up a Discord bot including:\n- Steps to create a bot\n- Required scopes and permissions\n- How to get bot token and channel ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Connect Discord",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"botToken\": \"MTIzNDU2Nzg5MDEyMzQ1Njc4.XXXXXX.YYYYYYYYYYYYYYYYYYYYYYYYYY\",\n  \"channelId\": \"1234567890123456789\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/services/discord/connect",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "discord", "connect"]
+						},
+						"description": "Connects a Discord bot to AREA.\n\n**Required:**\n- `botToken`: Discord bot token from Developer Portal\n- `channelId`: Target channel ID (enable Developer Mode in Discord to get this)\n\nThe endpoint validates the token and channel access before creating the connection."
+					},
+					"response": []
+				},
+				{
+					"name": "Test Discord Connection",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"botToken\": \"MTIzNDU2Nzg5MDEyMzQ1Njc4.XXXXXX.YYYYYYYYYYYYYYYYYYYYYYYYYY\",\n  \"channelId\": \"1234567890123456789\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/services/discord/test",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "discord", "test"]
+						},
+						"description": "Tests a Discord bot connection by sending a test message to the specified channel.\n\nUseful for validating bot token and permissions before creating a connection."
+					},
+					"response": []
+				},
+				{
+					"name": "Test Discord Bot (Legacy)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"message\": \"Hello from AREA!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/discord/test",
+							"host": ["{{base_url}}"],
+							"path": ["api", "discord", "test"]
+						},
+						"description": "Legacy endpoint for testing Discord bot with token/channel ID from .env file.\n\nRequires DISCORD_CLIENT_SECRET and DISCORD_CHANNEL_ID in server environment."
+					},
+					"response": []
+				}
+			],
+			"description": "Discord bot connection and testing endpoints."
+		},
+		{
+			"name": "Service Registry",
+			"item": [
+				{
+					"name": "List All Services",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services"]
+						},
+						"description": "Returns metadata for all available service integrations including:\n- Service type, name, and description\n- Whether authentication is required\n- Count of available actions and reactions\n- Full list of actions and reactions"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service by Type",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/GMAIL",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "GMAIL"]
+						},
+						"description": "Returns metadata for a specific service (GMAIL or DISCORD)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Actions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/GMAIL/actions",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "GMAIL", "actions"]
+						},
+						"description": "Returns all available actions (triggers) for a specific service with their configurations."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Reactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/DISCORD/reactions",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "DISCORD", "reactions"]
+						},
+						"description": "Returns all available reactions for a specific service with their configurations."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Services with Actions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/with-actions",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "with-actions"]
+						},
+						"description": "Returns only services that provide actions (triggers)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Services with Reactions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/with-reactions",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "with-reactions"]
+						},
+						"description": "Returns only services that provide reactions."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Service Registry Stats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/stats",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "stats"]
+						},
+						"description": "Returns statistics about the service registry including total services, actions, and reactions."
+					},
+					"response": []
+				}
+			],
+			"description": "Service discovery and metadata - query available services, actions, and reactions."
+		},
+		{
+			"name": "Workflows",
+			"item": [
+				{
+					"name": "List All Workflows",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/workflows?activeOnly=false",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows"],
+							"query": [
+								{
+									"key": "activeOnly",
+									"value": "false",
+									"description": "Filter to show only active workflows"
+								}
+							]
+						},
+						"description": "Lists all workflows. Use `activeOnly=true` to filter only active workflows."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Workflow by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{workflow_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{workflow_id}}"]
+						},
+						"description": "Retrieves details of a specific workflow including trigger and action configurations."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Workflow",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"My First Workflow\",\n  \"trigger\": {\n    \"service\": \"gmail\",\n    \"action\": \"new_email\",\n    \"config\": {\n      \"from\": \"example@gmail.com\",\n      \"subject\": \"important\"\n    }\n  },\n  \"action\": {\n    \"service\": \"discord\",\n    \"reaction\": \"send_message\",\n    \"config\": {\n      \"message\": \"New email received: {subject}\"\n    }\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows"]
+						},
+						"description": "Creates a new workflow with a trigger and action.\n\n**Note:** This is different from the Area endpoints. Workflows use a more generic structure."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Workflow",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Updated Workflow Name\",\n  \"description\": \"Updated description\",\n  \"workflowData\": {\n    \"trigger\": {\n      \"service\": \"gmail\",\n      \"action\": \"new_email\"\n    },\n    \"action\": {\n      \"service\": \"discord\",\n      \"reaction\": \"send_message\"\n    }\n  }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{workflow_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{workflow_id}}"]
+						},
+						"description": "Updates an existing workflow. All fields are optional."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Workflow Status",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{workflow_id}}/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{workflow_id}}", "status"]
+						},
+						"description": "Activates or deactivates a workflow."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Workflow",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{workflow_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{workflow_id}}"]
+						},
+						"description": "Permanently deletes a workflow."
+					},
+					"response": []
+				},
+				{
+					"name": "Execute Workflow Manually",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{workflow_id}}/execute",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{workflow_id}}", "execute"]
+						},
+						"description": "Manually triggers execution of a workflow (for testing purposes)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Available Workflow Nodes",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/available-nodes",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "available-nodes"]
+						},
+						"description": "Returns available triggers, actions, and reactions for building workflows."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Workflow Stats",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{workflow_id}}/stats",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{workflow_id}}", "stats"]
+						},
+						"description": "Returns execution statistics for a workflow in the last 24 hours."
+					},
+					"response": []
+				}
+			],
+			"description": "Workflow management - create, update, execute, and monitor generic workflows."
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "area_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "connection_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "workflow_id",
+			"value": "1",
+			"type": "string"
+		}
+	]
+}
