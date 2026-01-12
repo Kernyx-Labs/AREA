@@ -40,8 +40,9 @@ public class ServiceConnectionController {
     }
 
     @GetMapping
-    public Iterable<ServiceConnection> list() {
-        return serviceConnectionService.list();
+    public ResponseEntity<ApiResponse<Iterable<ServiceConnection>>> list() {
+        Iterable<ServiceConnection> connections = serviceConnectionService.list();
+        return ResponseEntity.ok(ApiResponse.success(connections));
     }
 
     @DeleteMapping("/{id}")

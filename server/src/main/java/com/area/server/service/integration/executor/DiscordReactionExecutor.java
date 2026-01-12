@@ -2,15 +2,19 @@ package com.area.server.service.integration.executor;
 
 import com.area.server.dto.GmailMessage;
 import com.area.server.model.Area;
+import com.area.server.model.ServiceConnection;
 import com.area.server.service.DiscordService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Executor for Discord "send_webhook" reaction.
- * Sends messages to Discord channels via webhooks.
+ * Sends messages to Discord channels via Discord Bot API using bot token.
  */
 @Component
 public class DiscordReactionExecutor implements ReactionExecutor {
@@ -30,23 +34,58 @@ public class DiscordReactionExecutor implements ReactionExecutor {
 
     @Override
     public Mono<Void> execute(Area area, TriggerContext context) {
-        // If context contains a Gmail message, send rich embed
-        if (context.has("latestMessage")) {
+        // Get the Discord ServiceConnection (contains bot token and channel ID)
+        ServiceConnection reactionConnection = area.getReactionConnection();
+
+        if (reactionConnection == null) {
+            logger.error("No reaction connection found for area {}", area.getId());
+            return Mono.error(new IllegalStateException("Discord connection not configured for this area"));
+        }
+
+        if (reactionConnection.getType() != ServiceConnection.ServiceType.DISCORD) {
+            logger.error("Reaction connection is not Discord for area {}", area.getId());
+            return Mono.error(new IllegalStateException("Invalid reaction connection type"));
+        }
+
+        // Extract bot token and channel ID
+        String botToken = reactionConnection.getAccessToken();
+        String channelId = discordService.extractChannelId(reactionConnection.getMetadata());
+
+        if (botToken == null || botToken.isBlank()) {
+            logger.error("Bot token is missing for area {}", area.getId());
+            return Mono.error(new IllegalStateException("Discord bot token not found in connection"));
+        }
+
+        if (channelId == null || channelId.isBlank()) {
+            logger.error("Channel ID is missing for area {}", area.getId());
+            return Mono.error(new IllegalStateException("Discord channel ID not found in connection metadata"));
+        }
+
+        // Check if we should use custom template or rich embed
+        String messageTemplate = area.getDiscordConfig() != null
+            ? area.getDiscordConfig().getMessageTemplate()
+            : null;
+
+        // If context contains a Gmail message and no custom template, send rich embed
+        if (context.has("latestMessage") && (messageTemplate == null || messageTemplate.isBlank())) {
             GmailMessage message = (GmailMessage) context.get("latestMessage");
             logger.info("Sending Discord rich embed for area {} with email: {}",
                        area.getId(), message.getSubject());
-            return discordService.sendRichEmbed(area.getDiscordConfig(), message);
+            return discordService.sendRichEmbedViaBotApi(botToken, channelId, message);
         }
-        
-        // Otherwise, send formatted text message
+
+        // Otherwise, send formatted text message using custom template
         String messageContent = formatMessage(area, context);
-        logger.info("Sending Discord message for area {}: {}", area.getId(), messageContent);
-        return discordService.sendMessage(area.getDiscordConfig(), messageContent);
+        logger.info("Sending Discord message for area {} to channel {}: {}",
+                   area.getId(), channelId, messageContent);
+        return discordService.sendMessageViaBotApi(botToken, channelId, messageContent);
     }
 
     private String formatMessage(Area area, TriggerContext context) {
-        String template = area.getDiscordConfig().getMessageTemplate();
-        
+        String template = area.getDiscordConfig() != null
+            ? area.getDiscordConfig().getMessageTemplate()
+            : null;
+
         if (template == null || template.isBlank()) {
             // Default message format
             Integer count = context.getInteger("messageCount");
@@ -55,17 +94,25 @@ public class DiscordReactionExecutor implements ReactionExecutor {
             }
             return "AREA triggered successfully!";
         }
-        
-        // Replace placeholders in template
-        String message = template;
+
+        // Create placeholders map from context
+        Map<String, String> placeholders = new HashMap<>();
+
+        // If we have a Gmail message, extract placeholders from it
+        if (context.has("latestMessage")) {
+            GmailMessage message = (GmailMessage) context.get("latestMessage");
+            placeholders = discordService.createPlaceholdersFromEmail(message);
+        }
+
+        // Add other context data as placeholders
         for (String key : context.getData().keySet()) {
-            String placeholder = "{{" + key + "}}";
             Object value = context.get(key);
-            if (value != null) {
-                message = message.replace(placeholder, value.toString());
+            if (value != null && !placeholders.containsKey(key)) {
+                placeholders.put(key, value.toString());
             }
         }
-        
-        return message;
+
+        // Replace placeholders in template
+        return discordService.replacePlaceholders(template, placeholders);
     }
 }

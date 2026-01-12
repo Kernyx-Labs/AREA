@@ -57,8 +57,8 @@ public class AreaService {
             throw new ValidationException("reactionConnection", "Reaction connection must be of type DISCORD");
         }
 
-        // Validate Discord webhook URL
-        DiscordWebhookValidator.validateWebhookUrl(discordConfig.getWebhookUrl());
+        // Note: No validation needed for webhookUrl as we now use bot tokens from ServiceConnection
+        // The bot token and channel ID are validated when the user connects Discord service
 
         Area area = new Area();
         area.setActionConnection(actionConnection);

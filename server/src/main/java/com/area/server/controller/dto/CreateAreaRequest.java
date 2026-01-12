@@ -17,7 +17,11 @@ public class CreateAreaRequest {
 
     private String gmailFromAddress;
 
-    @NotBlank
+    /**
+     * @deprecated Use bot token from ServiceConnection instead.
+     * This field is optional for backward compatibility.
+     */
+    @Deprecated(since = "2.0", forRemoval = true)
     private String discordWebhookUrl;
 
     private String discordChannelName;

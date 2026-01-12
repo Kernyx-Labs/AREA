@@ -56,7 +56,12 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/auth/**",
                     "/about.json",
-                    "/api/services",
+                    "/api/services/**",
+                    "/api/service-connections/**",
+                    "/api/areas/**",
+                    "/api/dashboard/**",
+                    "/api/workflows/**",
+                    "/oauth/**",
                     "/error"
                 ).permitAll()
                 .anyRequest().authenticated()

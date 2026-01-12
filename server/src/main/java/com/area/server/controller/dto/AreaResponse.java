@@ -51,6 +51,11 @@ public class AreaResponse {
     }
 
     public static class DiscordConfigDto {
+        /**
+         * @deprecated Use bot token from ServiceConnection instead.
+         * This field is kept for backward compatibility.
+         */
+        @Deprecated(since = "2.0", forRemoval = true)
         private String webhookUrl;
         private String channelName;
         private String messageTemplate;
@@ -63,10 +68,18 @@ public class AreaResponse {
             this.messageTemplate = messageTemplate;
         }
 
+        /**
+         * @deprecated Use bot token from ServiceConnection instead.
+         */
+        @Deprecated(since = "2.0", forRemoval = true)
         public String getWebhookUrl() {
             return webhookUrl;
         }
 
+        /**
+         * @deprecated Use bot token from ServiceConnection instead.
+         */
+        @Deprecated(since = "2.0", forRemoval = true)
         public void setWebhookUrl(String webhookUrl) {
             this.webhookUrl = webhookUrl;
         }
