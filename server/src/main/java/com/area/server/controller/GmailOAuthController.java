@@ -1,5 +1,6 @@
 package com.area.server.controller;
 
+import com.area.server.dto.response.ApiResponse;
 import com.area.server.model.ServiceConnection;
 import com.area.server.service.ServiceConnectionService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -51,14 +52,13 @@ public class GmailOAuthController {
     /**
      * Step 1: Get the authorization URL to start OAuth flow
      * The user will visit this URL in their browser to authorize the app
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
+     * Throws IllegalStateException if OAuth is not configured
      */
     @GetMapping("/auth-url")
-    public ResponseEntity<Map<String, String>> getAuthUrl() {
+    public ResponseEntity<ApiResponse<Map<String, String>>> getAuthUrl() {
         if (clientId == null || clientId.isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of(
-                "error", "Gmail OAuth not configured",
-                "message", "Please set GOOGLE_CLIENT_ID in your .env file"
-            ));
+            throw new IllegalStateException("Gmail OAuth not configured. Please set GOOGLE_CLIENT_ID in your .env file");
         }
 
         String scope = URLEncoder.encode("https://www.googleapis.com/auth/gmail.readonly", StandardCharsets.UTF_8);
@@ -75,11 +75,13 @@ public class GmailOAuthController {
             clientId, redirectEncoded, scope
         );
 
-        return ResponseEntity.ok(Map.of(
+        Map<String, String> data = Map.of(
             "authUrl", authUrl,
             "instructions", "Visit this URL in your browser to authorize Gmail access",
             "redirectUri", redirectUri
-        ));
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 
     /**
@@ -220,9 +222,10 @@ public class GmailOAuthController {
 
     /**
      * Quick status check endpoint
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
      */
     @GetMapping("/status")
-    public ResponseEntity<Map<String, Object>> getStatus() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getStatus() {
         boolean configured = clientId != null && !clientId.isBlank()
                           && clientSecret != null && !clientSecret.isBlank();
 
@@ -230,12 +233,14 @@ public class GmailOAuthController {
             .filter(c -> c.getType() == ServiceConnection.ServiceType.GMAIL)
             .count();
 
-        return ResponseEntity.ok(Map.of(
+        Map<String, Object> data = Map.of(
             "configured", configured,
             "clientIdPresent", clientId != null && !clientId.isBlank(),
             "clientSecretPresent", clientSecret != null && !clientSecret.isBlank(),
             "redirectUri", redirectUri != null ? redirectUri : "not set",
             "existingConnections", gmailConnectionCount
-        ));
+        );
+
+        return ResponseEntity.ok(ApiResponse.success(data));
     }
 }

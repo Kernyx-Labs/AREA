@@ -15,6 +15,10 @@ public class ServiceConnection {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
     private ServiceType type;
@@ -38,6 +42,14 @@ public class ServiceConnection {
 
     public Long getId() {
         return id;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public ServiceType getType() {

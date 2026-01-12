@@ -107,4 +107,5 @@ temp/
 
 area-ui-mockup.tsx
 .claude
+CLAUDE.md
 /server/db-data/

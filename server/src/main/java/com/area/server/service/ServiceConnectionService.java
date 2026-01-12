@@ -1,5 +1,6 @@
 package com.area.server.service;
 
+import com.area.server.exception.ServiceConnectionNotFoundException;
 import com.area.server.model.ServiceConnection;
 import com.area.server.repository.ServiceConnectionRepository;
 import org.springframework.stereotype.Service;
@@ -19,7 +20,7 @@ public class ServiceConnectionService {
 
     public ServiceConnection findById(Long id) {
         return repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Service connection not found: " + id));
+                .orElseThrow(() -> new ServiceConnectionNotFoundException(id));
     }
 
     public Iterable<ServiceConnection> list() {
