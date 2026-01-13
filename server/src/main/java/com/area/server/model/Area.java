@@ -1,5 +1,6 @@
 package com.area.server.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -10,6 +11,7 @@ public class Area {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private User user;
@@ -25,6 +27,12 @@ public class Area {
 
     @Embedded
     private DiscordReactionConfig discordConfig;
+
+    @Embedded
+    private GitHubActionConfig githubActionConfig;
+
+    @Embedded
+    private GitHubReactionConfig githubReactionConfig;
 
     private boolean active = true;
 
@@ -72,6 +80,22 @@ public class Area {
 
     public void setDiscordConfig(DiscordReactionConfig discordConfig) {
         this.discordConfig = discordConfig;
+    }
+
+    public GitHubActionConfig getGithubActionConfig() {
+        return githubActionConfig;
+    }
+
+    public void setGithubActionConfig(GitHubActionConfig githubActionConfig) {
+        this.githubActionConfig = githubActionConfig;
+    }
+
+    public GitHubReactionConfig getGithubReactionConfig() {
+        return githubReactionConfig;
+    }
+
+    public void setGithubReactionConfig(GitHubReactionConfig githubReactionConfig) {
+        this.githubReactionConfig = githubReactionConfig;
     }
 
     @SuppressWarnings("unused")

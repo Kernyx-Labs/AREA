@@ -122,4 +122,16 @@ public class TriggerStateService {
         stateRepository.save(state);
         logger.info("Reset failure count for area {}", area.getId());
     }
+
+    /**
+     * Update trigger state.
+     * Used by action executors to persist state changes.
+     *
+     * @param state the state to update
+     * @return the updated state
+     */
+    @Transactional
+    public AreaTriggerState update(AreaTriggerState state) {
+        return stateRepository.save(state);
+    }
 }
