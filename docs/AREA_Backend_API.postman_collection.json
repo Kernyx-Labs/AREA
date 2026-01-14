@@ -869,6 +869,766 @@
 			"description": "Service discovery and metadata - query available services, actions, and reactions."
 		},
 		{
+			"name": "Direct API Tests",
+			"item": [
+				{
+					"name": "Trigger Tests",
+					"item": [
+						{
+							"name": "Test Gmail Email Received",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"serviceConnectionId\": {{gmail_connection_id}},\n  \"gmailLabel\": \"INBOX\",\n  \"gmailSubjectContains\": \"test\",\n  \"gmailFromAddress\": \"\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/test/trigger/gmail/email_received",
+									"host": ["{{base_url}}"],
+									"path": ["api", "test", "trigger", "gmail", "email_received"]
+								},
+								"description": "**Test Gmail Email Trigger (Read-Only)**\n\nChecks if the Gmail trigger would fire based on the provided filters.\n\n**Endpoint:** `POST /api/test/trigger/gmail/email_received`\n\n**Request Body:**\n- `serviceConnectionId` (required): Your Gmail connection ID\n- `gmailLabel`: Gmail label to filter (INBOX, IMPORTANT, etc.)\n- `gmailSubjectContains`: Filter by subject keyword\n- `gmailFromAddress`: Filter by sender email\n\n**Response:**\n- `triggered`: Whether the trigger would fire\n- `message`: Human-readable explanation\n- `contextData`: Variables that would be passed to reactions\n- `itemCount`: Number of matching emails\n\n**Note:** This does NOT execute any reactions - it only checks the trigger condition."
+							},
+							"response": []
+						},
+						{
+							"name": "Test GitHub Issue Created",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"serviceConnectionId\": {{github_connection_id}},\n  \"githubRepository\": \"{{github_test_repo}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/test/trigger/github/issue_created",
+									"host": ["{{base_url}}"],
+									"path": ["api", "test", "trigger", "github", "issue_created"]
+								},
+								"description": "**Test GitHub Issue Trigger (Read-Only)**\n\nChecks if the GitHub issue trigger would fire for the specified repository.\n\n**Endpoint:** `POST /api/test/trigger/github/issue_created`\n\n**Request Body:**\n- `serviceConnectionId` (required): Your GitHub connection ID\n- `githubRepository` (required): Repository to check (format: owner/repo)\n\n**Response:**\n- `triggered`: Whether new issues were found\n- `message`: Human-readable explanation\n- `contextData`: Issue details (issueNumber, issueTitle, issueAuthor, issueUrl, etc.)\n- `itemCount`: Number of new issues\n\n**Note:** This does NOT execute any reactions - it only checks for new issues."
+							},
+							"response": []
+						},
+						{
+							"name": "Test GitHub PR Created",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"serviceConnectionId\": {{github_connection_id}},\n  \"githubRepository\": \"{{github_test_repo}}\"\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/test/trigger/github/pr_created",
+									"host": ["{{base_url}}"],
+									"path": ["api", "test", "trigger", "github", "pr_created"]
+								},
+								"description": "**Test GitHub PR Trigger (Read-Only)**\n\nChecks if the GitHub pull request trigger would fire for the specified repository.\n\n**Endpoint:** `POST /api/test/trigger/github/pr_created`\n\n**Request Body:**\n- `serviceConnectionId` (required): Your GitHub connection ID\n- `githubRepository` (required): Repository to check (format: owner/repo)\n\n**Response:**\n- `triggered`: Whether new PRs were found\n- `message`: Human-readable explanation\n- `contextData`: PR details (prNumber, prTitle, prAuthor, prUrl, prSourceBranch, prTargetBranch, etc.)\n- `itemCount`: Number of new pull requests\n\n**Note:** This does NOT execute any reactions - it only checks for new PRs."
+							},
+							"response": []
+						}
+					],
+					"description": "**Trigger Test Endpoints (Read-Only)**\n\nThese endpoints test if a trigger condition would fire without executing any reactions.\n\nUse these to:\n- Verify your service connections work\n- Test filter configurations\n- Preview what context data reactions would receive"
+				},
+				{
+					"name": "Reaction Tests",
+					"item": [
+						{
+							"name": "Test Discord Send Webhook",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"serviceConnectionId\": {{discord_connection_id}},\n  \"discordChannelId\": \"{{discord_channel_id}}\",\n  \"discordMessageTemplate\": \"**Test Message from AREA**\\n\\nFrom: {from}\\nSubject: {subject}\\nSnippet: {snippet}\",\n  \"mockContextData\": {\n    \"from\": \"test@example.com\",\n    \"subject\": \"Test Email Subject\",\n    \"snippet\": \"This is a test email snippet for testing purposes.\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/test/reaction/discord/send_webhook",
+									"host": ["{{base_url}}"],
+									"path": ["api", "test", "reaction", "discord", "send_webhook"]
+								},
+								"description": "**Test Discord Reaction (Executes Action)**\n\n⚠️ **WARNING:** This ACTUALLY SENDS a message to Discord!\n\n**Endpoint:** `POST /api/test/reaction/discord/send_webhook`\n\n**Request Body:**\n- `serviceConnectionId` (required): Your Discord connection ID\n- `discordChannelId` (required): Target channel ID\n- `discordMessageTemplate`: Message with placeholders ({from}, {subject}, etc.)\n- `mockContextData`: Simulated trigger context for placeholder substitution\n\n**Placeholders Available:**\n- `{from}`, `{subject}`, `{snippet}` - Email context\n- `{issueNumber}`, `{issueTitle}`, `{issueAuthor}` - GitHub issue context\n- `{prNumber}`, `{prTitle}`, `{prAuthor}` - GitHub PR context\n\n**Response:**\n- `success`: Whether the message was sent\n- `message`: Result description\n- `resultData`: Execution details"
+							},
+							"response": []
+						},
+						{
+							"name": "Test GitHub Create Issue",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"serviceConnectionId\": {{github_connection_id}},\n  \"githubRepository\": \"{{github_test_repo}}\",\n  \"githubIssueTitle\": \"[AREA Test] Issue created via test endpoint\",\n  \"githubIssueBody\": \"## Test Issue\\n\\nThis issue was created via the AREA test endpoint.\\n\\n**Triggered by:** {subject}\\n**From:** {from}\\n\\n---\\n*This is a test - you can close this issue.*\",\n  \"githubIssueLabels\": \"test,area-automation\",\n  \"mockContextData\": {\n    \"subject\": \"Test Email Subject\",\n    \"from\": \"test@example.com\",\n    \"snippet\": \"Test snippet content\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/test/reaction/github/create_issue",
+									"host": ["{{base_url}}"],
+									"path": ["api", "test", "reaction", "github", "create_issue"]
+								},
+								"description": "**Test GitHub Create Issue Reaction (Executes Action)**\n\n⚠️ **WARNING:** This ACTUALLY CREATES an issue in GitHub!\n\n**Endpoint:** `POST /api/test/reaction/github/create_issue`\n\n**Request Body:**\n- `serviceConnectionId` (required): Your GitHub connection ID\n- `githubRepository` (required): Target repository (format: owner/repo)\n- `githubIssueTitle` (required): Issue title (supports placeholders)\n- `githubIssueBody`: Issue description (supports placeholders)\n- `githubIssueLabels`: Comma-separated labels (e.g., \"bug,urgent\")\n- `mockContextData`: Simulated trigger context for placeholder substitution\n\n**Response:**\n- `success`: Whether the issue was created\n- `message`: Result description\n- `resultData`: Created issue details"
+							},
+							"response": []
+						},
+						{
+							"name": "Test GitHub Create PR",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"serviceConnectionId\": {{github_connection_id}},\n  \"githubRepository\": \"{{github_test_repo}}\",\n  \"githubPrTitle\": \"[AREA Test] PR created via test endpoint\",\n  \"githubPrBody\": \"## Test Pull Request\\n\\nThis PR was created via the AREA test endpoint.\\n\\n**Context:** {subject}\\n\\n---\\n*This is a test - you can close this PR.*\",\n  \"githubSourceBranch\": \"area-test-branch-{{$timestamp}}\",\n  \"githubTargetBranch\": \"main\",\n  \"githubCommitMessage\": \"test: add test file via AREA\",\n  \"githubFilePath\": \"test/area-test-file.txt\",\n  \"githubFileContent\": \"This file was created by AREA test endpoint at {{$timestamp}}\\n\\nContext: {subject}\",\n  \"mockContextData\": {\n    \"subject\": \"Test context subject\",\n    \"from\": \"test@example.com\"\n  }\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/test/reaction/github/create_pr",
+									"host": ["{{base_url}}"],
+									"path": ["api", "test", "reaction", "github", "create_pr"]
+								},
+								"description": "**Test GitHub Create PR Reaction (Executes Action)**\n\n⚠️ **WARNING:** This ACTUALLY CREATES a pull request in GitHub!\n\n**Endpoint:** `POST /api/test/reaction/github/create_pr`\n\n**Request Body:**\n- `serviceConnectionId` (required): Your GitHub connection ID\n- `githubRepository` (required): Target repository (format: owner/repo)\n- `githubPrTitle` (required): PR title (supports placeholders)\n- `githubPrBody`: PR description (supports placeholders)\n- `githubSourceBranch` (required): New branch name for the PR\n- `githubTargetBranch`: Target branch (defaults to 'main')\n- `githubCommitMessage`: Commit message\n- `githubFilePath` (required): Path for new file\n- `githubFileContent`: Content to write to file\n- `mockContextData`: Simulated trigger context\n\n**Workflow:**\n1. Creates new branch from target\n2. Commits file with content\n3. Opens PR from source to target\n\n**Response:**\n- `success`: Whether the PR was created\n- `message`: Result description\n- `resultData`: Created PR details"
+							},
+							"response": []
+						}
+					],
+					"description": "**Reaction Test Endpoints (Execute Actions)**\n\n⚠️ **WARNING:** These endpoints ACTUALLY EXECUTE reactions!\n\nUse these to:\n- Verify reaction configurations work\n- Test message templates with mock data\n- Debug integration issues\n\n**mockContextData** allows you to provide fake trigger context for testing placeholders."
+				}
+			],
+			"description": "**Direct API Test Endpoints**\n\nThese endpoints allow you to test individual triggers and reactions via the `/api/test/*` endpoints.\n\n**Trigger Tests** (Read-Only):\n- Check if triggers would fire\n- Preview context data\n- No side effects\n\n**Reaction Tests** (Execute Actions):\n- Actually perform the reaction\n- Send real messages/create real issues\n- Use mockContextData for placeholder testing"
+		},
+		{
+			"name": "Trigger Testing",
+			"item": [
+				{
+					"name": "Gmail Triggers",
+					"item": [
+						{
+							"name": "Test Gmail - New Unread Email",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test Gmail New Unread Email Trigger\",\n  \"description\": \"Testing gmail.new_unread_email trigger\",\n  \"triggerServiceType\": \"GMAIL\",\n  \"triggerType\": \"gmail.new_unread_email\",\n  \"triggerConfig\": {\n    \"label\": \"INBOX\",\n    \"subjectContains\": \"test\",\n    \"fromAddress\": \"\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"[TEST] Gmail Trigger: New email from {from} - Subject: {subject}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with Gmail 'New Unread Email' trigger.\n\n**Trigger Type:** `gmail.new_unread_email`\n\n**Configuration Options:**\n- `label`: Gmail label to filter (INBOX, IMPORTANT, STARRED, etc.)\n- `subjectContains`: Filter by subject keyword\n- `fromAddress`: Filter by sender email\n\n**Context Variables Available:**\n- `{subject}` - Email subject\n- `{from}` - Sender email address\n- `{snippet}` - Email preview snippet\n- `{messageId}` - Gmail message ID\n- `{messageCount}` - Number of new messages"
+							},
+							"response": []
+						},
+						{
+							"name": "Test Gmail - New Email with Label",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test Gmail New Email with Label Trigger\",\n  \"description\": \"Testing gmail.new_email_with_label trigger\",\n  \"triggerServiceType\": \"GMAIL\",\n  \"triggerType\": \"gmail.new_email_with_label\",\n  \"triggerConfig\": {\n    \"label\": \"IMPORTANT\",\n    \"fromAddress\": \"\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"[TEST] Gmail Label Trigger: Email with IMPORTANT label from {from}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with Gmail 'New Email with Label' trigger.\n\n**Trigger Type:** `gmail.new_email_with_label`\n\n**Configuration Options:**\n- `label` (required): Gmail label to monitor\n- `fromAddress`: Optional sender filter\n\n**Context Variables Available:**\n- Same as new_unread_email trigger"
+							},
+							"response": []
+						}
+					],
+					"description": "Test endpoints for Gmail triggers (actions that initiate workflows)."
+				},
+				{
+					"name": "GitHub Triggers",
+					"item": [
+						{
+							"name": "Test GitHub - Issue Created",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test GitHub Issue Created Trigger\",\n  \"description\": \"Testing github.issue_created trigger\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.issue_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_test_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"[TEST] GitHub Issue Created: #{issueNumber} - {issueTitle} by {issueAuthor}\\nURL: {issueUrl}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with GitHub 'Issue Created' trigger.\n\n**Trigger Type:** `github.issue_created`\n\n**Configuration Options:**\n- `repository` (required): Repository to monitor in format `owner/repo`\n\n**Context Variables Available:**\n- `{issueNumber}` - Issue number\n- `{issueTitle}` - Issue title\n- `{issueBody}` - Issue description\n- `{issueUrl}` - GitHub URL to issue\n- `{issueAuthor}` - Issue author username\n- `{issueCount}` - Number of new issues\n- `{latestIssue}` - Full issue object"
+							},
+							"response": []
+						},
+						{
+							"name": "Test GitHub - Pull Request Created",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test GitHub PR Created Trigger\",\n  \"description\": \"Testing github.pr_created trigger\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.pr_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_test_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"[TEST] GitHub PR Created: #{prNumber} - {prTitle} by {prAuthor}\\nBranch: {prSourceBranch} -> {prTargetBranch}\\nURL: {prUrl}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with GitHub 'Pull Request Created' trigger.\n\n**Trigger Type:** `github.pr_created`\n\n**Configuration Options:**\n- `repository` (required): Repository to monitor in format `owner/repo`\n\n**Context Variables Available:**\n- `{prNumber}` - PR number\n- `{prTitle}` - PR title\n- `{prBody}` - PR description\n- `{prUrl}` - GitHub URL to PR\n- `{prAuthor}` - PR author username\n- `{prSourceBranch}` - Source branch name\n- `{prTargetBranch}` - Target branch name\n- `{prCount}` - Number of new PRs\n- `{latestPullRequest}` - Full PR object"
+							},
+							"response": []
+						}
+					],
+					"description": "Test endpoints for GitHub triggers (actions that initiate workflows)."
+				}
+			],
+			"description": "Individual testing endpoints for all available triggers. Each request creates a workflow with a specific trigger type for testing purposes."
+		},
+		{
+			"name": "Reaction Testing",
+			"item": [
+				{
+					"name": "Discord Reactions",
+					"item": [
+						{
+							"name": "Test Discord - Send Message",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test Discord Send Message Reaction\",\n  \"description\": \"Testing discord.send_message reaction\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.issue_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_test_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"**Custom Test Message**\\n\\nIssue: {issueTitle}\\nAuthor: {issueAuthor}\\nRepository: {{github_test_repo}}\",\n        \"channelName\": \"test-notifications\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with Discord 'Send Message' reaction.\n\n**Reaction Type:** `discord.send_webhook` (mode: send_message)\n\n**Configuration Options:**\n- `webhookUrl` (required): Discord webhook URL\n- `messageTemplate`: Custom message with variable placeholders\n- `channelName`: Channel name for reference\n\n**Supported Placeholders:**\n- `{subject}`, `{from}`, `{snippet}` - Gmail context\n- `{issueTitle}`, `{issueNumber}`, `{issueAuthor}` - GitHub issue context\n- `{prTitle}`, `{prNumber}`, `{prAuthor}` - GitHub PR context"
+							},
+							"response": []
+						},
+						{
+							"name": "Test Discord - Send Rich Embed",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test Discord Rich Embed Reaction\",\n  \"description\": \"Testing discord.send_rich_embed reaction\",\n  \"triggerServiceType\": \"GMAIL\",\n  \"triggerType\": \"gmail.new_unread_email\",\n  \"triggerConfig\": {\n    \"label\": \"INBOX\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"embedMode\": true,\n        \"channelName\": \"email-notifications\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with Discord 'Send Rich Embed' reaction.\n\n**Reaction Type:** `discord.send_webhook` (mode: rich_embed)\n\n**Configuration Options:**\n- `webhookUrl` (required): Discord webhook URL\n- `embedMode`: Set to true for rich embed format\n- `channelName`: Channel name for reference\n\n**Auto-formatted Fields:**\n- Title: Email subject\n- Author: Sender email\n- Description: Email snippet\n- Color: Based on message type"
+							},
+							"response": []
+						},
+						{
+							"name": "Test Discord - Send Batch Notification",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test Discord Batch Notification Reaction\",\n  \"description\": \"Testing discord.send_batch_notification reaction\",\n  \"triggerServiceType\": \"GMAIL\",\n  \"triggerType\": \"gmail.new_unread_email\",\n  \"triggerConfig\": {\n    \"label\": \"INBOX\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"batchMode\": true,\n        \"maxEmailsToShow\": 5\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with Discord 'Send Batch Notification' reaction.\n\n**Reaction Type:** `discord.send_webhook` (mode: batch)\n\n**Configuration Options:**\n- `webhookUrl` (required): Discord webhook URL\n- `batchMode`: Set to true for batch notifications\n- `maxEmailsToShow`: Max emails to display (default: 5)\n\n**Output Format:**\nSummarizes multiple emails in a single notification with count and list."
+							},
+							"response": []
+						},
+						{
+							"name": "Direct Discord Webhook Test",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"content\": \"**AREA Test Message**\\n\\nThis is a direct test to verify your Discord webhook is working correctly.\\n\\n✅ Webhook URL is valid\\n✅ Bot has permission to post\\n✅ Ready for AREA integration\"\n}"
+								},
+								"url": {
+									"raw": "{{discord_webhook_url}}",
+									"host": ["{{discord_webhook_url}}"]
+								},
+								"description": "Direct test to Discord webhook (bypasses AREA server).\n\n**Use this to:**\n- Verify webhook URL is correct\n- Test Discord permissions\n- Debug webhook issues before creating workflows\n\n**Note:** This calls Discord directly, not through AREA."
+							},
+							"response": []
+						}
+					],
+					"description": "Test endpoints for Discord reactions."
+				},
+				{
+					"name": "GitHub Reactions",
+					"item": [
+						{
+							"name": "Test GitHub - Create Issue",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test GitHub Create Issue Reaction\",\n  \"description\": \"Testing github.create_issue reaction\",\n  \"triggerServiceType\": \"GMAIL\",\n  \"triggerType\": \"gmail.new_unread_email\",\n  \"triggerConfig\": {\n    \"label\": \"INBOX\",\n    \"subjectContains\": \"bug\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"GITHUB\",\n      \"reactionType\": \"github.create_issue\",\n      \"reactionConfig\": {\n        \"repository\": \"{{github_test_repo}}\",\n        \"issueTitle\": \"[Auto] Bug Report from Email: {subject}\",\n        \"issueBody\": \"**Automatically created from email**\\n\\n**From:** {from}\\n**Subject:** {subject}\\n\\n**Preview:**\\n{snippet}\\n\\n---\\n*Created by AREA automation*\",\n        \"labels\": \"bug,auto-generated\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with GitHub 'Create Issue' reaction.\n\n**Reaction Type:** `github.create_issue`\n\n**Configuration Options:**\n- `repository` (required): Target repository in format `owner/repo`\n- `issueTitle` (required): Issue title with variable substitution\n- `issueBody`: Issue body/description with variables\n- `labels`: Comma-separated labels (e.g., 'bug,urgent')\n\n**Variable Substitution:**\nAll fields support context variables from the trigger."
+							},
+							"response": []
+						},
+						{
+							"name": "Test GitHub - Create Pull Request",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test GitHub Create PR Reaction\",\n  \"description\": \"Testing github.create_pr reaction\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.issue_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_test_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"GITHUB\",\n      \"reactionType\": \"github.create_pr\",\n      \"reactionConfig\": {\n        \"repository\": \"{{github_test_repo}}\",\n        \"prTitle\": \"[Auto] Fix for issue #{issueNumber}: {issueTitle}\",\n        \"prBody\": \"**Automatically created PR**\\n\\nThis PR addresses issue #{issueNumber}\\n\\n**Issue Title:** {issueTitle}\\n**Issue Author:** {issueAuthor}\\n\\n---\\n*Created by AREA automation*\",\n        \"sourceBranch\": \"auto/issue-{issueNumber}\",\n        \"targetBranch\": \"main\",\n        \"filePath\": \"docs/auto-generated/issue-{issueNumber}.md\",\n        \"fileContent\": \"# Issue #{issueNumber}\\n\\n**Title:** {issueTitle}\\n**Author:** {issueAuthor}\\n**URL:** {issueUrl}\\n\\n## Description\\n{issueBody}\",\n        \"commitMessage\": \"docs: add documentation for issue #{issueNumber}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a test workflow with GitHub 'Create Pull Request' reaction.\n\n**Reaction Type:** `github.create_pr`\n\n**Configuration Options:**\n- `repository` (required): Target repository in format `owner/repo`\n- `prTitle` (required): PR title with variable substitution\n- `prBody`: PR description with variables\n- `sourceBranch` (required): Branch name for the PR\n- `targetBranch`: Target branch (defaults to 'main')\n- `filePath` (required): Path of file to commit\n- `fileContent` (required): Content to write with variables\n- `commitMessage`: Commit message (defaults to PR title)\n\n**Workflow:**\n1. Creates new branch from target\n2. Commits file with content\n3. Opens PR from source to target branch"
+							},
+							"response": []
+						},
+						{
+							"name": "Test GitHub - Issue to Issue Chain",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Authorization",
+										"value": "Bearer {{access_token}}"
+									},
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n  \"name\": \"Test GitHub Issue to Issue Chain\",\n  \"description\": \"Testing github.issue_created -> github.create_issue chain\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.issue_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_source_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"GITHUB\",\n      \"reactionType\": \"github.create_issue\",\n      \"reactionConfig\": {\n        \"repository\": \"{{github_target_repo}}\",\n        \"issueTitle\": \"[Mirror] {issueTitle}\",\n        \"issueBody\": \"**Mirrored from:** {{github_source_repo}}#{issueNumber}\\n\\n**Original Author:** {issueAuthor}\\n**Original URL:** {issueUrl}\\n\\n---\\n\\n{issueBody}\",\n        \"labels\": \"mirrored,tracking\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+								},
+								"url": {
+									"raw": "{{base_url}}/api/workflows",
+									"host": ["{{base_url}}"],
+									"path": ["api", "workflows"]
+								},
+								"description": "Creates a workflow that mirrors issues from one repository to another.\n\n**Use Case:**\n- Cross-repository issue tracking\n- Issue synchronization between projects\n- Backup/audit trail of issues\n\n**Setup:**\nSet `github_source_repo` and `github_target_repo` in environment."
+							},
+							"response": []
+						}
+					],
+					"description": "Test endpoints for GitHub reactions."
+				}
+			],
+			"description": "Individual testing endpoints for all available reactions. Each request creates a workflow that demonstrates a specific reaction type."
+		},
+		{
+			"name": "Complete Test Scenarios",
+			"item": [
+				{
+					"name": "Scenario: Gmail to Discord Notification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Gmail to Discord - Full Test\",\n  \"description\": \"Complete test: Gmail email triggers Discord notification\",\n  \"triggerServiceType\": \"GMAIL\",\n  \"triggerType\": \"gmail.new_unread_email\",\n  \"triggerConfig\": {\n    \"label\": \"INBOX\",\n    \"subjectContains\": \"\",\n    \"fromAddress\": \"\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"📧 **New Email Received**\\n\\n**From:** {from}\\n**Subject:** {subject}\\n\\n**Preview:**\\n> {snippet}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows"]
+						},
+						"description": "**Complete Test Scenario: Gmail → Discord**\n\nCreates a workflow that sends Discord notifications for new Gmail emails.\n\n**Prerequisites:**\n1. Gmail OAuth connected\n2. Discord webhook URL configured\n\n**Test Steps:**\n1. Create this workflow\n2. Activate it\n3. Send a test email to your Gmail\n4. Check Discord for notification"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario: GitHub Issue to Discord Alert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"GitHub Issue to Discord - Full Test\",\n  \"description\": \"Complete test: GitHub issue triggers Discord alert\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.issue_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_test_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"🐛 **New GitHub Issue**\\n\\n**Repository:** {{github_test_repo}}\\n**Issue:** #{issueNumber} - {issueTitle}\\n**Author:** {issueAuthor}\\n**URL:** {issueUrl}\\n\\n**Description:**\\n> {issueBody}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows"]
+						},
+						"description": "**Complete Test Scenario: GitHub Issue → Discord**\n\nCreates a workflow that sends Discord alerts for new GitHub issues.\n\n**Prerequisites:**\n1. GitHub OAuth connected\n2. Discord webhook URL configured\n3. `github_test_repo` set in environment\n\n**Test Steps:**\n1. Create this workflow\n2. Activate it\n3. Create a new issue in the repository\n4. Check Discord for alert"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario: GitHub PR to Discord Alert",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"GitHub PR to Discord - Full Test\",\n  \"description\": \"Complete test: GitHub PR triggers Discord alert\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.pr_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_test_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"🔀 **New Pull Request**\\n\\n**Repository:** {{github_test_repo}}\\n**PR:** #{prNumber} - {prTitle}\\n**Author:** {prAuthor}\\n**Branch:** `{prSourceBranch}` → `{prTargetBranch}`\\n**URL:** {prUrl}\\n\\n**Description:**\\n> {prBody}\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows"]
+						},
+						"description": "**Complete Test Scenario: GitHub PR → Discord**\n\nCreates a workflow that sends Discord alerts for new pull requests.\n\n**Prerequisites:**\n1. GitHub OAuth connected\n2. Discord webhook URL configured\n3. `github_test_repo` set in environment\n\n**Test Steps:**\n1. Create this workflow\n2. Activate it\n3. Create a new PR in the repository\n4. Check Discord for alert"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario: Gmail to GitHub Issue",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Gmail to GitHub Issue - Full Test\",\n  \"description\": \"Complete test: Gmail email triggers GitHub issue creation\",\n  \"triggerServiceType\": \"GMAIL\",\n  \"triggerType\": \"gmail.new_unread_email\",\n  \"triggerConfig\": {\n    \"label\": \"INBOX\",\n    \"subjectContains\": \"bug\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"GITHUB\",\n      \"reactionType\": \"github.create_issue\",\n      \"reactionConfig\": {\n        \"repository\": \"{{github_test_repo}}\",\n        \"issueTitle\": \"[Email Report] {subject}\",\n        \"issueBody\": \"## Bug Report from Email\\n\\n**Reported by:** {from}\\n**Subject:** {subject}\\n\\n### Email Content:\\n{snippet}\\n\\n---\\n*Automatically created by AREA from email*\",\n        \"labels\": \"bug,from-email\"\n      },\n      \"orderIndex\": 0\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows"]
+						},
+						"description": "**Complete Test Scenario: Gmail → GitHub Issue**\n\nCreates a workflow that creates GitHub issues from emails containing 'bug'.\n\n**Prerequisites:**\n1. Gmail OAuth connected\n2. GitHub OAuth connected\n3. `github_test_repo` set in environment\n\n**Test Steps:**\n1. Create this workflow\n2. Activate it\n3. Send an email with 'bug' in subject\n4. Check repository for new issue"
+					},
+					"response": []
+				},
+				{
+					"name": "Scenario: Multi-Action (Discord + GitHub)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Multi-Action Test - Discord + GitHub\",\n  \"description\": \"Complete test: Single trigger with multiple reactions\",\n  \"triggerServiceType\": \"GITHUB\",\n  \"triggerType\": \"github.issue_created\",\n  \"triggerConfig\": {\n    \"repository\": \"{{github_source_repo}}\"\n  },\n  \"actions\": [\n    {\n      \"serviceType\": \"DISCORD\",\n      \"reactionType\": \"discord.send_webhook\",\n      \"reactionConfig\": {\n        \"webhookUrl\": \"{{discord_webhook_url}}\",\n        \"messageTemplate\": \"🔔 **Issue Alert**\\n\\nNew issue #{issueNumber} created in {{github_source_repo}}\\n**Title:** {issueTitle}\\n**By:** {issueAuthor}\"\n      },\n      \"orderIndex\": 0\n    },\n    {\n      \"serviceType\": \"GITHUB\",\n      \"reactionType\": \"github.create_issue\",\n      \"reactionConfig\": {\n        \"repository\": \"{{github_target_repo}}\",\n        \"issueTitle\": \"[Tracking] {issueTitle}\",\n        \"issueBody\": \"Tracking issue for {{github_source_repo}}#{issueNumber}\\n\\n**Original:** {issueUrl}\",\n        \"labels\": \"tracking\"\n      },\n      \"orderIndex\": 1\n    }\n  ]\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows"]
+						},
+						"description": "**Complete Test Scenario: Multi-Action Workflow**\n\nCreates a workflow with multiple reactions from a single trigger.\n\n**Actions:**\n1. Send Discord notification\n2. Create tracking issue in another repository\n\n**Prerequisites:**\n1. GitHub OAuth connected\n2. Discord webhook URL configured\n3. `github_source_repo` and `github_target_repo` set\n\n**Test Steps:**\n1. Create this workflow\n2. Activate it\n3. Create issue in source repo\n4. Verify Discord notification\n5. Verify tracking issue in target repo"
+					},
+					"response": []
+				},
+				{
+					"name": "Execute Test Workflow",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{test_workflow_id}}/execute",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{test_workflow_id}}", "execute"]
+						},
+						"description": "Manually trigger execution of a test workflow.\n\n**Usage:**\n1. Create a test workflow using one of the above requests\n2. Set `test_workflow_id` to the created workflow ID\n3. Execute this request to manually trigger the workflow\n\n**Note:** Manual execution bypasses the normal trigger check."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Test Workflow State",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{test_workflow_id}}/stats",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{test_workflow_id}}", "stats"]
+						},
+						"description": "Check execution statistics for a test workflow.\n\n**Returns:**\n- Total executions\n- Success/failure count\n- Last execution time\n- Recent execution history"
+					},
+					"response": []
+				},
+				{
+					"name": "Activate Test Workflow",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"active\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{test_workflow_id}}/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{test_workflow_id}}", "status"]
+						},
+						"description": "Activate a test workflow to start processing triggers.\n\n**Note:** After activation, the workflow will check for triggers according to the scheduler interval."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate Test Workflow",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"active\": false\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{test_workflow_id}}/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{test_workflow_id}}", "status"]
+						},
+						"description": "Deactivate a test workflow to stop processing triggers.\n\n**Use this:**\n- After completing tests\n- To prevent unwanted executions\n- Before deleting the workflow"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Test Workflow",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/workflows/{{test_workflow_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["api", "workflows", "{{test_workflow_id}}"]
+						},
+						"description": "Delete a test workflow after testing is complete.\n\n**Warning:** This permanently deletes the workflow and all associated execution logs."
+					},
+					"response": []
+				}
+			],
+			"description": "Complete end-to-end test scenarios combining triggers and reactions. Use these to test full workflow functionality."
+		},
+		{
 			"name": "Workflows",
 			"item": [
 				{
