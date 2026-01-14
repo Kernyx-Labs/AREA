@@ -28,8 +28,10 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Scheduler that polls active workflows and executes them based on trigger conditions.
- * This replaces the hardcoded AreaPollingScheduler with a flexible, JSON-driven approach.
+ * Scheduler that polls active workflows and executes them based on trigger
+ * conditions.
+ * This replaces the hardcoded AreaPollingScheduler with a flexible, JSON-driven
+ * approach.
  *
  * Key features:
  * - Parses workflow JSON to determine trigger and actions
@@ -54,14 +56,22 @@ public class WorkflowPollingScheduler {
     private final ExternalApiLogger apiLogger;
     private final ObjectMapper objectMapper;
 
+    private long lastExecutionTime = 0;
+
+    // Default 60s, will be updated by property injection if possible, but hard to
+    // capture from @Scheduled
+    // We will hardcode to match the 60000 default or use a value injection
+    @org.springframework.beans.factory.annotation.Value("${workflow.polling.interval:60000}")
+    private long pollingInterval;
+
     public WorkflowPollingScheduler(WorkflowRepository workflowRepository,
-                                    WorkflowTriggerStateService stateService,
-                                    WorkflowExecutionLogRepository logRepository,
-                                    ServiceConnectionRepository connectionRepository,
-                                    ActionExecutorRegistry actionExecutorRegistry,
-                                    ReactionExecutorRegistry reactionExecutorRegistry,
-                                    ExternalApiLogger apiLogger,
-                                    ObjectMapper objectMapper) {
+            WorkflowTriggerStateService stateService,
+            WorkflowExecutionLogRepository logRepository,
+            ServiceConnectionRepository connectionRepository,
+            ActionExecutorRegistry actionExecutorRegistry,
+            ReactionExecutorRegistry reactionExecutorRegistry,
+            ExternalApiLogger apiLogger,
+            ObjectMapper objectMapper) {
         this.workflowRepository = workflowRepository;
         this.stateService = stateService;
         this.logRepository = logRepository;
@@ -72,10 +82,18 @@ public class WorkflowPollingScheduler {
         this.objectMapper = objectMapper;
     }
 
-    @Scheduled(fixedDelayString = "${workflow.polling.interval:60000}",
-               initialDelayString = "${workflow.polling.initial-delay:30000}")
+    public long getLastExecutionTime() {
+        return lastExecutionTime;
+    }
+
+    public long getPollingInterval() {
+        return pollingInterval;
+    }
+
+    @Scheduled(fixedDelayString = "${workflow.polling.interval:60000}", initialDelayString = "${workflow.polling.initial-delay:30000}")
     public void pollActiveWorkflows() {
-        logger.info("=== Starting WORKFLOW polling cycle ===");
+        this.lastExecutionTime = System.currentTimeMillis();
+        logger.info("=== Starting WORKFLOW polling cycle (Timestamp: {}) ===", this.lastExecutionTime);
         long startTime = System.currentTimeMillis();
 
         List<Workflow> activeWorkflows = workflowRepository.findByActive(true);
@@ -91,28 +109,28 @@ public class WorkflowPollingScheduler {
         AtomicInteger skippedCount = new AtomicInteger(0);
 
         Flux.fromIterable(activeWorkflows)
-            .flatMap(workflow -> processWorkflow(workflow)
-                .doOnSuccess(result -> {
-                    switch (result.status) {
-                        case SUCCESS -> successCount.incrementAndGet();
-                        case FAILURE -> failureCount.incrementAndGet();
-                        case SKIPPED -> skippedCount.incrementAndGet();
-                    }
-                })
-                .onErrorResume(error -> {
-                    logger.error("Unexpected error processing workflow {}: {}",
-                               workflow.getId(), error.getMessage(), error);
-                    failureCount.incrementAndGet();
-                    return Mono.empty();
-                }),
-                5 // Process up to 5 workflows concurrently
-            )
-            .collectList()
-            .block(Duration.ofMinutes(2));
+                .flatMap(workflow -> processWorkflow(workflow)
+                        .doOnSuccess(result -> {
+                            switch (result.status) {
+                                case SUCCESS -> successCount.incrementAndGet();
+                                case FAILURE -> failureCount.incrementAndGet();
+                                case SKIPPED -> skippedCount.incrementAndGet();
+                            }
+                        })
+                        .onErrorResume(error -> {
+                            logger.error("Unexpected error processing workflow {}: {}",
+                                    workflow.getId(), error.getMessage(), error);
+                            failureCount.incrementAndGet();
+                            return Mono.empty();
+                        }),
+                        5 // Process up to 5 workflows concurrently
+                )
+                .collectList()
+                .block(Duration.ofMinutes(2));
 
         long duration = System.currentTimeMillis() - startTime;
         logger.info("=== Polling cycle completed in {}ms - Success: {}, Failed: {}, Skipped: {} ===",
-                    duration, successCount.get(), failureCount.get(), skippedCount.get());
+                duration, successCount.get(), failureCount.get(), skippedCount.get());
     }
 
     private Mono<ProcessingResult> processWorkflow(Workflow workflow) {
@@ -122,10 +140,10 @@ public class WorkflowPollingScheduler {
         // Check circuit breaker
         if (stateService.shouldSkipDueToFailures(workflow)) {
             logger.warn("Skipping workflow {} due to circuit breaker (too many consecutive failures)",
-                       workflow.getId());
+                    workflow.getId());
             logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.SKIPPED, null, null,
-                        null, "Circuit breaker open - too many consecutive failures",
-                        System.currentTimeMillis() - startTime);
+                    null, "Circuit breaker open - too many consecutive failures",
+                    System.currentTimeMillis() - startTime);
             return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.SKIPPED));
         }
 
@@ -138,7 +156,7 @@ public class WorkflowPollingScheduler {
                 logger.error("Workflow {} has invalid data: {}", workflow.getId(), error);
                 stateService.recordFailure(workflow, error);
                 logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.FAILURE, null, null,
-                            null, error, System.currentTimeMillis() - startTime);
+                        null, error, System.currentTimeMillis() - startTime);
                 return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.FAILURE));
             }
         } catch (Exception e) {
@@ -146,7 +164,7 @@ public class WorkflowPollingScheduler {
             logger.error("Workflow {} parse error: {}", workflow.getId(), error, e);
             stateService.recordFailure(workflow, error);
             logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.FAILURE, null, null,
-                        null, error, System.currentTimeMillis() - startTime);
+                    null, error, System.currentTimeMillis() - startTime);
             return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.FAILURE));
         }
 
@@ -154,7 +172,7 @@ public class WorkflowPollingScheduler {
         String triggerType = trigger.getFullType();
 
         apiLogger.logOperation("WORKFLOW", "CHECK_TRIGGER",
-            String.format("Workflow %d - Checking trigger %s", workflow.getId(), triggerType));
+                String.format("Workflow %d - Checking trigger %s", workflow.getId(), triggerType));
 
         // Get the action executor for this trigger
         ActionExecutor actionExecutor;
@@ -165,8 +183,8 @@ public class WorkflowPollingScheduler {
             logger.error("Workflow {} executor error: {}", workflow.getId(), error);
             stateService.recordFailure(workflow, error);
             logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.FAILURE,
-                        trigger.getService(), trigger.getType(), null, error,
-                        System.currentTimeMillis() - startTime);
+                    trigger.getService(), trigger.getType(), null, error,
+                    System.currentTimeMillis() - startTime);
             return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.FAILURE));
         }
 
@@ -174,62 +192,62 @@ public class WorkflowPollingScheduler {
         WorkflowWrapper wrapper = new WorkflowWrapper(workflow, workflowData, stateService, connectionRepository);
 
         return actionExecutor.getTriggerContext(wrapper)
-            .flatMap(context -> {
-                // Check if trigger fired
-                if (!hasTriggerFired(context, trigger)) {
-                    stateService.updateCheckedTime(workflow);
-                    logger.debug("No trigger for workflow {} ({})", workflow.getId(), triggerType);
-                    return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.SKIPPED));
-                }
+                .flatMap(context -> {
+                    // Check if trigger fired
+                    if (!hasTriggerFired(context, trigger)) {
+                        stateService.updateCheckedTime(workflow);
+                        logger.debug("No trigger for workflow {} ({})", workflow.getId(), triggerType);
+                        return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.SKIPPED));
+                    }
 
-                Integer triggerCount = context.getInteger("messageCount") != null
-                    ? context.getInteger("messageCount")
-                    : (context.getInteger("issueCount") != null
-                        ? context.getInteger("issueCount")
-                        : (context.getInteger("prCount") != null ? context.getInteger("prCount") : 1));
+                    Integer triggerCount = context.getInteger("messageCount") != null
+                            ? context.getInteger("messageCount")
+                            : (context.getInteger("issueCount") != null
+                                    ? context.getInteger("issueCount")
+                                    : (context.getInteger("prCount") != null ? context.getInteger("prCount") : 1));
 
-                logger.info("Workflow {} triggered by {} with {} item(s)",
-                           workflow.getId(), triggerType, triggerCount);
+                    logger.info("Workflow {} triggered by {} with {} item(s)",
+                            workflow.getId(), triggerType, triggerCount);
 
-                apiLogger.logOperation("WORKFLOW", "TRIGGER_FIRED",
-                    String.format("Workflow %d - %s triggered with %d items",
-                                 workflow.getId(), triggerType, triggerCount));
+                    apiLogger.logOperation("WORKFLOW", "TRIGGER_FIRED",
+                            String.format("Workflow %d - %s triggered with %d items",
+                                    workflow.getId(), triggerType, triggerCount));
 
-                // Execute all actions/reactions
-                return executeActions(workflow, workflowData, context, wrapper)
-                    .then(Mono.fromRunnable(() -> {
-                        // Update state after successful execution
-                        String lastItemId = extractLastItemId(context, trigger);
-                        stateService.updateStateAfterSuccess(workflow, lastItemId, triggerCount);
+                    // Execute all actions/reactions
+                    return executeActions(workflow, workflowData, context, wrapper)
+                            .then(Mono.fromRunnable(() -> {
+                                // Update state after successful execution
+                                String lastItemId = extractLastItemId(context, trigger);
+                                stateService.updateStateAfterSuccess(workflow, lastItemId, triggerCount);
 
-                        long execTime = System.currentTimeMillis() - startTime;
-                        String details = buildExecutionDetails(workflowData, context);
+                                long execTime = System.currentTimeMillis() - startTime;
+                                String details = buildExecutionDetails(workflowData, context);
 
-                        logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.SUCCESS,
-                                   trigger.getService(), trigger.getType(),
-                                   workflowData.getActions().size(), details, execTime);
+                                logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.SUCCESS,
+                                        trigger.getService(), trigger.getType(),
+                                        workflowData.getActions().size(), details, execTime);
 
-                        logger.info("Successfully processed workflow {} in {}ms", workflow.getId(), execTime);
+                                logger.info("Successfully processed workflow {} in {}ms", workflow.getId(), execTime);
 
-                        apiLogger.logOperation("WORKFLOW", "SUCCESS",
-                            String.format("Workflow %d completed in %dms", workflow.getId(), execTime));
-                    }))
-                    .thenReturn(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.SUCCESS));
-            })
-            .onErrorResume(error -> {
-                String errorMsg = error.getMessage();
-                logger.error("Failed to process workflow {}: {}", workflow.getId(), errorMsg, error);
+                                apiLogger.logOperation("WORKFLOW", "SUCCESS",
+                                        String.format("Workflow %d completed in %dms", workflow.getId(), execTime));
+                            }))
+                            .thenReturn(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.SUCCESS));
+                })
+                .onErrorResume(error -> {
+                    String errorMsg = error.getMessage();
+                    logger.error("Failed to process workflow {}: {}", workflow.getId(), errorMsg, error);
 
-                stateService.recordFailure(workflow, errorMsg);
+                    stateService.recordFailure(workflow, errorMsg);
 
-                long execTime = System.currentTimeMillis() - startTime;
-                logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.FAILURE,
-                           trigger.getService(), trigger.getType(), null, errorMsg, execTime);
+                    long execTime = System.currentTimeMillis() - startTime;
+                    logExecution(workflow, WorkflowExecutionLog.ExecutionStatus.FAILURE,
+                            trigger.getService(), trigger.getType(), null, errorMsg, execTime);
 
-                apiLogger.logError("WORKFLOW", workflow.getId().toString(), error, execTime);
+                    apiLogger.logError("WORKFLOW", workflow.getId().toString(), error, execTime);
 
-                return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.FAILURE));
-            });
+                    return Mono.just(new ProcessingResult(WorkflowExecutionLog.ExecutionStatus.FAILURE));
+                });
     }
 
     /**
@@ -263,40 +281,40 @@ public class WorkflowPollingScheduler {
      * Execute all actions/reactions defined in the workflow.
      */
     private Mono<Void> executeActions(Workflow workflow, WorkflowData workflowData,
-                                     TriggerContext context, WorkflowWrapper wrapper) {
+            TriggerContext context, WorkflowWrapper wrapper) {
         if (workflowData.getActions() == null || workflowData.getActions().isEmpty()) {
             logger.warn("Workflow {} has no actions defined", workflow.getId());
             return Mono.empty();
         }
 
         return Flux.fromIterable(workflowData.getActions())
-            .concatMap(action -> {
-                String reactionType = action.getFullType();
+                .concatMap(action -> {
+                    String reactionType = action.getFullType();
 
-                apiLogger.logOperation("WORKFLOW", "EXECUTE_ACTION",
-                    String.format("Workflow %d - Executing action %s", workflow.getId(), reactionType));
+                    apiLogger.logOperation("WORKFLOW", "EXECUTE_ACTION",
+                            String.format("Workflow %d - Executing action %s", workflow.getId(), reactionType));
 
-                try {
-                    ReactionExecutor reactionExecutor = reactionExecutorRegistry.getExecutor(reactionType);
+                    try {
+                        ReactionExecutor reactionExecutor = reactionExecutorRegistry.getExecutor(reactionType);
 
-                    // Create a wrapper for this specific action
-                    ActionWrapper actionWrapper = new ActionWrapper(wrapper, action);
+                        // Create a wrapper for this specific action
+                        ActionWrapper actionWrapper = new ActionWrapper(wrapper, action);
 
-                    return reactionExecutor.execute(actionWrapper, context)
-                        .doOnSuccess(v -> {
-                            logger.info("Workflow {} - Action {} executed successfully",
-                                       workflow.getId(), reactionType);
-                        })
-                        .doOnError(error -> {
-                            logger.error("Workflow {} - Action {} failed: {}",
-                                       workflow.getId(), reactionType, error.getMessage());
-                        });
-                } catch (IllegalArgumentException e) {
-                    logger.error("No reaction executor found for type: {}", reactionType);
-                    return Mono.error(new RuntimeException("No executor for reaction: " + reactionType));
-                }
-            })
-            .then();
+                        return reactionExecutor.execute(actionWrapper, context)
+                                .doOnSuccess(v -> {
+                                    logger.info("Workflow {} - Action {} executed successfully",
+                                            workflow.getId(), reactionType);
+                                })
+                                .doOnError(error -> {
+                                    logger.error("Workflow {} - Action {} failed: {}",
+                                            workflow.getId(), reactionType, error.getMessage());
+                                });
+                    } catch (IllegalArgumentException e) {
+                        logger.error("No reaction executor found for type: {}", reactionType);
+                        return Mono.error(new RuntimeException("No executor for reaction: " + reactionType));
+                    }
+                })
+                .then();
     }
 
     /**
@@ -343,8 +361,8 @@ public class WorkflowPollingScheduler {
      * Log workflow execution to database.
      */
     private void logExecution(Workflow workflow, WorkflowExecutionLog.ExecutionStatus status,
-                             String triggerService, String triggerAction,
-                             Integer actionsExecuted, String message, long executionTimeMs) {
+            String triggerService, String triggerAction,
+            Integer actionsExecuted, String message, long executionTimeMs) {
         try {
             WorkflowExecutionLog log = new WorkflowExecutionLog();
             log.setWorkflow(workflow);

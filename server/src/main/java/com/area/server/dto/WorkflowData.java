@@ -75,8 +75,22 @@ public class WorkflowData {
         /**
          * Get the full action type in the format "service.type"
          */
+        /**
+         * Get the full action type in the format "service.type"
+         */
         public String getFullType() {
-            return service + "." + type;
+            String effectiveType = type;
+            if (effectiveType == null && config != null && config.containsKey("actionType")) {
+                effectiveType = (String) config.get("actionType");
+            }
+            if (effectiveType == null) {
+                return service + ".null";
+            }
+            String prefix = service.toLowerCase() + ".";
+            if (effectiveType.toLowerCase().startsWith(prefix)) {
+                return effectiveType.toLowerCase();
+            }
+            return (prefix + effectiveType.toLowerCase());
         }
     }
 
@@ -127,7 +141,23 @@ public class WorkflowData {
          * Get the full reaction type in the format "service.type"
          */
         public String getFullType() {
-            return service + "." + type;
+            String effectiveType = type;
+            if (effectiveType == null && config != null && config.containsKey("reactionType")) {
+                effectiveType = (String) config.get("reactionType");
+            }
+            // Fallback for actions potentially storing type as actionType or type
+            if (effectiveType == null && config != null && config.containsKey("type")) {
+                effectiveType = (String) config.get("type");
+            }
+
+            if (effectiveType == null) {
+                return service + ".null";
+            }
+            String prefix = service.toLowerCase() + ".";
+            if (effectiveType.toLowerCase().startsWith(prefix)) {
+                return effectiveType.toLowerCase();
+            }
+            return (prefix + effectiveType.toLowerCase());
         }
     }
 }
