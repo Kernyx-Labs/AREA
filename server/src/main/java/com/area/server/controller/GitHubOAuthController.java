@@ -1,6 +1,7 @@
 package com.area.server.controller;
 
 import com.area.server.dto.GitHubApiResponse;
+import com.area.server.dto.GitHubRepositoryDTO;
 import com.area.server.dto.response.ApiResponse;
 import com.area.server.model.ServiceConnection;
 import com.area.server.model.User;
@@ -10,8 +11,10 @@ import com.area.server.service.ServiceConnectionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.LinkedMultiValueMap;
@@ -23,7 +26,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.StreamSupport;
@@ -273,6 +278,73 @@ public class GitHubOAuthController {
         );
 
         return ResponseEntity.ok(ApiResponse.success(data));
+    }
+
+    /**
+     * Get list of repositories accessible to the authenticated user
+     * Filters to show only repositories where the user has push or admin access
+     * This endpoint is used for dynamic repository selection in workflow configuration
+     */
+    @GetMapping("/repositories")
+    public ResponseEntity<ApiResponse<List<GitHubRepositoryDTO>>> getRepositories(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(name = "per_page", defaultValue = "100") int perPage) {
+
+        // Get authenticated user
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() ||
+            "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(401)
+                .body(ApiResponse.error("Authentication required. Please log in."));
+        }
+
+        String email = authentication.getName();
+        User user = userDetailsService.loadUserEntityByEmail(email);
+
+        // Find GitHub connection
+        Optional<ServiceConnection> connectionOpt = connectionService
+            .findFirstByUserAndType(user, ServiceConnection.ServiceType.GITHUB);
+
+        if (connectionOpt.isEmpty()) {
+            return ResponseEntity.status(404)
+                .body(ApiResponse.error("No GitHub connection found. Please connect your GitHub account first."));
+        }
+
+        ServiceConnection connection = connectionOpt.get();
+        String accessToken = connection.getAccessToken();
+
+        if (accessToken == null || accessToken.isBlank()) {
+            return ResponseEntity.status(500)
+                .body(ApiResponse.error("GitHub connection is invalid. Please reconnect your account."));
+        }
+
+        // Fetch repositories
+        try {
+            List<GitHubRepositoryDTO> repositories = githubService
+                .getUserRepositories(accessToken, page, perPage)
+                .block();
+
+            if (repositories == null) {
+                return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Failed to fetch repositories from GitHub."));
+            }
+
+            return ResponseEntity.ok(ApiResponse.success(repositories));
+
+        } catch (Exception e) {
+            logger.error("Error fetching repositories for user {}: {}", email, e.getMessage(), e);
+
+            if (e.getCause() instanceof WebClientResponseException webClientError) {
+                HttpStatus status = (HttpStatus) webClientError.getStatusCode();
+                if (status == HttpStatus.UNAUTHORIZED || status == HttpStatus.FORBIDDEN) {
+                    return ResponseEntity.status(401)
+                        .body(ApiResponse.error("GitHub access token is invalid or expired. Please reconnect your account."));
+                }
+            }
+
+            return ResponseEntity.status(500)
+                .body(ApiResponse.error("Failed to fetch repositories: " + e.getMessage()));
+        }
     }
 
     /**
