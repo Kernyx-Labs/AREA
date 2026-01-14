@@ -319,4 +319,145 @@ public class GitHubApiResponse {
             this.documentationUrl = documentationUrl;
         }
     }
+
+    /**
+     * Response from GitHub API /user/repos endpoint
+     */
+    public static class RepositoryResponse {
+        private Long id;
+
+        @JsonProperty("full_name")
+        private String fullName;
+
+        private String name;
+
+        private String description;
+
+        @JsonProperty("private")
+        private boolean isPrivate;
+
+        @JsonProperty("html_url")
+        private String htmlUrl;
+
+        private Owner owner;
+
+        private Permissions permissions;
+
+        public Long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public void setFullName(String fullName) {
+            this.fullName = fullName;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getDescription() {
+            return description;
+        }
+
+        public void setDescription(String description) {
+            this.description = description;
+        }
+
+        public boolean isPrivate() {
+            return isPrivate;
+        }
+
+        public void setPrivate(boolean isPrivate) {
+            this.isPrivate = isPrivate;
+        }
+
+        public String getHtmlUrl() {
+            return htmlUrl;
+        }
+
+        public void setHtmlUrl(String htmlUrl) {
+            this.htmlUrl = htmlUrl;
+        }
+
+        public Owner getOwner() {
+            return owner;
+        }
+
+        public void setOwner(Owner owner) {
+            this.owner = owner;
+        }
+
+        public Permissions getPermissions() {
+            return permissions;
+        }
+
+        public void setPermissions(Permissions permissions) {
+            this.permissions = permissions;
+        }
+
+        public static class Owner {
+            private String login;
+
+            @JsonProperty("html_url")
+            private String htmlUrl;
+
+            public String getLogin() {
+                return login;
+            }
+
+            public void setLogin(String login) {
+                this.login = login;
+            }
+
+            public String getHtmlUrl() {
+                return htmlUrl;
+            }
+
+            public void setHtmlUrl(String htmlUrl) {
+                this.htmlUrl = htmlUrl;
+            }
+        }
+
+        public static class Permissions {
+            private boolean admin;
+            private boolean push;
+            private boolean pull;
+
+            public boolean isAdmin() {
+                return admin;
+            }
+
+            public void setAdmin(boolean admin) {
+                this.admin = admin;
+            }
+
+            public boolean isPush() {
+                return push;
+            }
+
+            public void setPush(boolean push) {
+                this.push = push;
+            }
+
+            public boolean isPull() {
+                return pull;
+            }
+
+            public void setPull(boolean pull) {
+                this.pull = pull;
+            }
+        }
+    }
 }

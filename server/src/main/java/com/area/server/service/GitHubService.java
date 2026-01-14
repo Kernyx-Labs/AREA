@@ -3,6 +3,7 @@ package com.area.server.service;
 import com.area.server.dto.GitHubApiResponse;
 import com.area.server.dto.GitHubIssue;
 import com.area.server.dto.GitHubPullRequest;
+import com.area.server.dto.GitHubRepositoryDTO;
 import com.area.server.model.GitHubActionConfig;
 import com.area.server.model.GitHubReactionConfig;
 import com.area.server.model.ServiceConnection;
@@ -316,6 +317,51 @@ public class GitHubService {
             .retrieve()
             .bodyToMono(GitHubApiResponse.UserResponse.class)
             .doOnSuccess(user -> logger.debug("Retrieved GitHub user: {}", user.getLogin()));
+    }
+
+    /**
+     * Fetch user's accessible repositories with push/admin permissions
+     * Filters repositories to show only those where the user can create issues and PRs
+     *
+     * @param accessToken GitHub OAuth access token
+     * @param page Page number (1-indexed)
+     * @param perPage Number of results per page (max 100)
+     * @return List of repositories the user can access
+     */
+    public Mono<List<GitHubRepositoryDTO>> getUserRepositories(String accessToken, int page, int perPage) {
+        int actualPerPage = Math.min(perPage, 100);
+
+        return githubClient.get()
+            .uri(uriBuilder -> uriBuilder
+                .path("/user/repos")
+                .queryParam("sort", "updated")
+                .queryParam("direction", "desc")
+                .queryParam("per_page", actualPerPage)
+                .queryParam("page", page)
+                .queryParam("affiliation", "owner,collaborator,organization_member")
+                .build())
+            .headers(headers -> headers.setBearerAuth(accessToken))
+            .retrieve()
+            .bodyToFlux(GitHubApiResponse.RepositoryResponse.class)
+            .filter(repo -> repo.getPermissions() != null &&
+                           (repo.getPermissions().isPush() || repo.getPermissions().isAdmin()))
+            .map(this::mapToRepositoryDTO)
+            .collectList()
+            .doOnSuccess(repos -> logger.debug("Fetched {} repositories for user", repos.size()))
+            .retryWhen(Retry.backoff(MAX_RETRIES, Duration.ofSeconds(2))
+                .filter(this::isRetriableError));
+    }
+
+    /**
+     * Map GitHub API repository response to our DTO
+     */
+    private GitHubRepositoryDTO mapToRepositoryDTO(GitHubApiResponse.RepositoryResponse repo) {
+        GitHubRepositoryDTO dto = new GitHubRepositoryDTO();
+        dto.setFullName(repo.getFullName());
+        dto.setDescription(repo.getDescription());
+        dto.setPrivate(repo.isPrivate());
+        dto.setHtmlUrl(repo.getHtmlUrl());
+        return dto;
     }
 
     /**

@@ -3,7 +3,9 @@ package com.area.server.service.integration;
 import com.area.server.model.ServiceConnection;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * GitHub integration service providing repository monitoring and management.
@@ -32,6 +34,13 @@ public class GitHubIntegration implements ServiceIntegration {
 
     @Override
     public List<ActionDefinition> getActions() {
+        // Metadata for dynamic repository selection
+        Map<String, Object> repositoryMetadata = new HashMap<>();
+        repositoryMetadata.put("dynamicOptionsEndpoint", "/api/services/github/repositories");
+        repositoryMetadata.put("optionsValueField", "full_name");
+        repositoryMetadata.put("optionsLabelField", "full_name");
+        repositoryMetadata.put("searchable", true);
+
         return List.of(
             new ActionDefinition(
                 "github.issue_created",
@@ -39,18 +48,12 @@ public class GitHubIntegration implements ServiceIntegration {
                 "Triggers when a new issue is created in a repository",
                 List.of(
                     new FieldDefinition(
-                        "repositoryOwner",
-                        "Repository Owner",
-                        "string",
+                        "repository",
+                        "Repository",
+                        "select",
                         true,
-                        "GitHub username or organization name (e.g., 'octocat')"
-                    ),
-                    new FieldDefinition(
-                        "repositoryName",
-                        "Repository Name",
-                        "string",
-                        true,
-                        "Repository name (e.g., 'hello-world')"
+                        "Select the repository to monitor (format: owner/repo)",
+                        repositoryMetadata
                     )
                 )
             ),
@@ -60,18 +63,12 @@ public class GitHubIntegration implements ServiceIntegration {
                 "Triggers when a new pull request is created in a repository",
                 List.of(
                     new FieldDefinition(
-                        "repositoryOwner",
-                        "Repository Owner",
-                        "string",
+                        "repository",
+                        "Repository",
+                        "select",
                         true,
-                        "GitHub username or organization name"
-                    ),
-                    new FieldDefinition(
-                        "repositoryName",
-                        "Repository Name",
-                        "string",
-                        true,
-                        "Repository name"
+                        "Select the repository to monitor (format: owner/repo)",
+                        repositoryMetadata
                     )
                 )
             )
@@ -80,6 +77,13 @@ public class GitHubIntegration implements ServiceIntegration {
 
     @Override
     public List<ReactionDefinition> getReactions() {
+        // Metadata for dynamic repository selection
+        Map<String, Object> repositoryMetadata = new HashMap<>();
+        repositoryMetadata.put("dynamicOptionsEndpoint", "/api/services/github/repositories");
+        repositoryMetadata.put("optionsValueField", "full_name");
+        repositoryMetadata.put("optionsLabelField", "full_name");
+        repositoryMetadata.put("searchable", true);
+
         return List.of(
             new ReactionDefinition(
                 "github.create_issue",
@@ -87,18 +91,12 @@ public class GitHubIntegration implements ServiceIntegration {
                 "Create a new issue in a GitHub repository with templated content",
                 List.of(
                     new FieldDefinition(
-                        "repositoryOwner",
-                        "Repository Owner",
-                        "string",
+                        "repository",
+                        "Repository",
+                        "select",
                         true,
-                        "GitHub username or organization name"
-                    ),
-                    new FieldDefinition(
-                        "repositoryName",
-                        "Repository Name",
-                        "string",
-                        true,
-                        "Repository name"
+                        "Select the target repository (format: owner/repo)",
+                        repositoryMetadata
                     ),
                     new FieldDefinition(
                         "issueTitle",
@@ -129,18 +127,12 @@ public class GitHubIntegration implements ServiceIntegration {
                 "Create a new pull request with file commits in a GitHub repository",
                 List.of(
                     new FieldDefinition(
-                        "repositoryOwner",
-                        "Repository Owner",
-                        "string",
+                        "repository",
+                        "Repository",
+                        "select",
                         true,
-                        "GitHub username or organization name"
-                    ),
-                    new FieldDefinition(
-                        "repositoryName",
-                        "Repository Name",
-                        "string",
-                        true,
-                        "Repository name"
+                        "Select the target repository (format: owner/repo)",
+                        repositoryMetadata
                     ),
                     new FieldDefinition(
                         "prTitle",
