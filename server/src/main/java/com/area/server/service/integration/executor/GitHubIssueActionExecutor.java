@@ -3,9 +3,13 @@ package com.area.server.service.integration.executor;
 import com.area.server.dto.GitHubIssue;
 import com.area.server.model.Area;
 import com.area.server.model.AreaTriggerState;
+import com.area.server.model.AutomationEntity;
 import com.area.server.model.GitHubActionConfig;
+import com.area.server.model.WorkflowTriggerState;
+import com.area.server.scheduler.WorkflowWrapper;
 import com.area.server.service.GitHubService;
 import com.area.server.service.TriggerStateService;
+import com.area.server.service.WorkflowTriggerStateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -23,12 +27,15 @@ public class GitHubIssueActionExecutor implements ActionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(GitHubIssueActionExecutor.class);
 
     private final GitHubService githubService;
-    private final TriggerStateService stateService;
+    private final TriggerStateService areaStateService;
+    private final WorkflowTriggerStateService workflowStateService;
 
     public GitHubIssueActionExecutor(GitHubService githubService,
-                                      TriggerStateService stateService) {
+            TriggerStateService areaStateService,
+            WorkflowTriggerStateService workflowStateService) {
         this.githubService = githubService;
-        this.stateService = stateService;
+        this.areaStateService = areaStateService;
+        this.workflowStateService = workflowStateService;
     }
 
     @Override
@@ -37,65 +44,87 @@ public class GitHubIssueActionExecutor implements ActionExecutor {
     }
 
     @Override
-    public Mono<Boolean> isTriggered(Area area) {
-        return getTriggerContext(area)
-            .map(context -> context.has("newIssues") &&
-                           context.getInteger("issueCount") != null &&
-                           context.getInteger("issueCount") > 0);
+    public Mono<Boolean> isTriggered(AutomationEntity entity) {
+        return getTriggerContext(entity)
+                .map(context -> context.has("newIssues") &&
+                        context.getInteger("issueCount") != null &&
+                        context.getInteger("issueCount") > 0);
     }
 
     @Override
-    public Mono<TriggerContext> getTriggerContext(Area area) {
-        GitHubActionConfig config = area.getGithubActionConfig();
+    public Mono<TriggerContext> getTriggerContext(AutomationEntity entity) {
+        GitHubActionConfig config = entity.getGithubActionConfig();
 
         if (config == null || !"issue_created".equals(config.getActionType())) {
             return Mono.just(new TriggerContext());
         }
 
-        AreaTriggerState state = stateService.getOrCreateState(area);
-        Long afterIssueNumber = parseIssueNumber(state.getLastProcessedMessageId());
+        String lastProcessedId = getLastProcessedId(entity);
+        Long afterIssueNumber = parseIssueNumber(lastProcessedId);
 
         return githubService.fetchNewIssues(
-                area.getActionConnection(),
+                entity.getActionConnection(),
                 config,
-                afterIssueNumber
-            )
-            .map(newIssues -> {
-                TriggerContext context = new TriggerContext();
-                context.put("newIssues", newIssues);
-                context.put("issueCount", newIssues.size());
+                afterIssueNumber)
+                .map(newIssues -> {
+                    TriggerContext context = new TriggerContext();
+                    context.put("newIssues", newIssues);
+                    context.put("issueCount", newIssues.size());
 
-                if (!newIssues.isEmpty()) {
-                    GitHubIssue latestIssue = newIssues.get(0);
-                    context.put("latestIssue", latestIssue);
-                    context.put("issueNumber", latestIssue.getNumber());
-                    context.put("issueTitle", latestIssue.getTitle());
-                    context.put("issueBody", latestIssue.getBody());
-                    context.put("issueUrl", latestIssue.getHtmlUrl());
+                    if (!newIssues.isEmpty()) {
+                        GitHubIssue latestIssue = newIssues.get(0);
+                        context.put("latestIssue", latestIssue);
+                        context.put("issueNumber", latestIssue.getNumber());
+                        context.put("issueTitle", latestIssue.getTitle());
+                        context.put("issueBody", latestIssue.getBody());
+                        context.put("issueUrl", latestIssue.getHtmlUrl());
 
-                    if (latestIssue.getUser() != null) {
-                        context.put("issueAuthor", latestIssue.getUser().getLogin());
+                        if (latestIssue.getUser() != null) {
+                            context.put("issueAuthor", latestIssue.getUser().getLogin());
+                        }
+
+                        // Update state with latest issue number to prevent reprocessing
+                        updateState(entity, "issue:" + latestIssue.getNumber());
+                        logger.debug("Updated state for entity {} to issue number {}", entity.getId(),
+                                latestIssue.getNumber());
                     }
 
-                    // Update state with latest issue number to prevent reprocessing
-                    state.setLastProcessedMessageId("issue:" + latestIssue.getNumber());
-                    stateService.update(state);
-                    logger.debug("Updated state for area {} to issue number {}", area.getId(), latestIssue.getNumber());
-                }
+                    return context;
+                })
+                .doOnSuccess(context -> {
+                    if (context.getInteger("issueCount") != null && context.getInteger("issueCount") > 0) {
+                        logger.info("GitHub issue action triggered for entity {} with {} new issue(s)",
+                                entity.getId(), context.getInteger("issueCount"));
+                    }
+                })
+                .onErrorResume(error -> {
+                    logger.error("Error executing GitHub issue action for entity {}: {}",
+                            entity.getId(), error.getMessage());
+                    return Mono.just(new TriggerContext());
+                });
+    }
 
-                return context;
-            })
-            .doOnSuccess(context -> {
-                if (context.getInteger("issueCount") != null && context.getInteger("issueCount") > 0) {
-                    logger.info("GitHub issue action triggered for area {} with {} new issue(s)",
-                               area.getId(), context.getInteger("issueCount"));
-                }
-            })
-            .onErrorResume(error -> {
-                logger.error("Error executing GitHub issue action for area {}: {}",
-                           area.getId(), error.getMessage());
-                return Mono.just(new TriggerContext());
-            });
+    private String getLastProcessedId(AutomationEntity entity) {
+        if (entity instanceof Area area) {
+            AreaTriggerState state = areaStateService.getOrCreateState(area);
+            return state.getLastProcessedMessageId();
+        } else if (entity instanceof WorkflowWrapper wrapper) {
+            WorkflowTriggerState state = workflowStateService.getOrCreateState(wrapper.getWorkflow());
+            return state.getLastProcessedItemId();
+        }
+        return null;
+    }
+
+    private void updateState(AutomationEntity entity, String lastItemId) {
+        if (entity instanceof Area area) {
+            AreaTriggerState state = areaStateService.getOrCreateState(area);
+            state.setLastProcessedMessageId(lastItemId);
+            areaStateService.update(state);
+        } else if (entity instanceof WorkflowWrapper wrapper) {
+            WorkflowTriggerState state = workflowStateService.getOrCreateState(wrapper.getWorkflow());
+            state.setLastProcessedItemId(lastItemId);
+            workflowStateService.update(state);
+        }
     }
 
     /**

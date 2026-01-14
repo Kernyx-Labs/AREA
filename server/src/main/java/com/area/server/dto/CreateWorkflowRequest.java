@@ -27,6 +27,7 @@ public class CreateWorkflowRequest {
 
         private String type;
         private Map<String, Object> config;
+        private Long connectionId;
 
         public String getService() {
             return service;
@@ -50,6 +51,14 @@ public class CreateWorkflowRequest {
 
         public void setConfig(Map<String, Object> config) {
             this.config = config;
+        }
+
+        public Long getConnectionId() {
+            return connectionId;
+        }
+
+        public void setConnectionId(Long connectionId) {
+            this.connectionId = connectionId;
         }
     }
 
@@ -59,6 +68,7 @@ public class CreateWorkflowRequest {
 
         private String type;
         private Map<String, Object> config;
+        private Long connectionId;
 
         public String getService() {
             return service;
@@ -82,6 +92,14 @@ public class CreateWorkflowRequest {
 
         public void setConfig(Map<String, Object> config) {
             this.config = config;
+        }
+
+        public Long getConnectionId() {
+            return connectionId;
+        }
+
+        public void setConnectionId(Long connectionId) {
+            this.connectionId = connectionId;
         }
     }
 

@@ -1,6 +1,6 @@
 package com.area.server.service.integration.executor;
 
-import com.area.server.model.Area;
+import com.area.server.model.AutomationEntity;
 import com.area.server.model.GitHubReactionConfig;
 import com.area.server.service.GitHubService;
 import org.slf4j.Logger;
@@ -29,52 +29,50 @@ public class GitHubPullRequestReactionExecutor implements ReactionExecutor {
     }
 
     @Override
-    public Mono<Void> execute(Area area, TriggerContext context) {
-        GitHubReactionConfig config = area.getGithubReactionConfig();
+    public Mono<Void> execute(AutomationEntity entity, TriggerContext context) {
+        GitHubReactionConfig config = entity.getGithubReactionConfig();
 
         if (config == null || !"create_pr".equals(config.getReactionType())) {
-            logger.warn("GitHub create_pr reaction not configured for area {}", area.getId());
+            logger.warn("GitHub create_pr reaction not configured for entity {}", entity.getId());
             return Mono.empty();
         }
 
         if (config.getRepositoryOwner() == null || config.getRepositoryName() == null) {
-            logger.error("GitHub repository not configured for area {}", area.getId());
+            logger.error("GitHub repository not configured for entity {}", entity.getId());
             return Mono.error(new IllegalStateException("GitHub repository not configured"));
         }
 
         if (config.getPrTitle() == null || config.getPrTitle().isBlank()) {
-            logger.error("GitHub PR title not configured for area {}", area.getId());
+            logger.error("GitHub PR title not configured for entity {}", entity.getId());
             return Mono.error(new IllegalStateException("GitHub PR title not configured"));
         }
 
         if (config.getSourceBranch() == null || config.getSourceBranch().isBlank()) {
-            logger.error("GitHub source branch not configured for area {}", area.getId());
+            logger.error("GitHub source branch not configured for entity {}", entity.getId());
             return Mono.error(new IllegalStateException("GitHub source branch not configured"));
         }
 
         if (config.getFilePath() == null || config.getFilePath().isBlank()) {
-            logger.error("GitHub file path not configured for area {}", area.getId());
+            logger.error("GitHub file path not configured for entity {}", entity.getId());
             return Mono.error(new IllegalStateException("GitHub file path not configured"));
         }
 
-        logger.info("Executing GitHub create_pr reaction for area {}", area.getId());
+        logger.info("Executing GitHub create_pr reaction for entity {}", entity.getId());
 
         return githubService.createPullRequest(
-                area.getReactionConnection(),
+                entity.getReactionConnection(),
                 config,
-                context
-            )
-            .doOnSuccess(response ->
-                logger.info("Successfully created PR #{} in {}/{} for area {}",
-                          response.getNumber(),
-                          config.getRepositoryOwner(),
-                          config.getRepositoryName(),
-                          area.getId()))
-            .then()
-            .onErrorResume(error -> {
-                logger.error("Failed to create GitHub pull request for area {}: {}",
-                           area.getId(), error.getMessage());
-                return Mono.error(error);
-            });
+                context)
+                .doOnSuccess(response -> logger.info("Successfully created PR #{} in {}/{} for entity {}",
+                        response.getNumber(),
+                        config.getRepositoryOwner(),
+                        config.getRepositoryName(),
+                        entity.getId()))
+                .then()
+                .onErrorResume(error -> {
+                    logger.error("Failed to create GitHub pull request for entity {}: {}",
+                            entity.getId(), error.getMessage());
+                    return Mono.error(error);
+                });
     }
 }

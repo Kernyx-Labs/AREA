@@ -9,16 +9,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 
 /**
- * Adapter that makes a Workflow work with Area-based executors.
- * This allows reuse of existing ActionExecutor and ReactionExecutor implementations
+ * Adapter that makes a Workflow work with AutomationEntity-based executors.
+ * This allows reuse of existing ActionExecutor and ReactionExecutor
+ * implementations
  * that were designed for the Area entity.
  *
  * Key adaptations:
- * - Maps workflow JSON config to embedded config objects (GmailActionConfig, GitHubActionConfig, etc.)
+ * - Maps workflow JSON config to embedded config objects (GmailActionConfig,
+ * GitHubActionConfig, etc.)
  * - Retrieves ServiceConnections from workflow's connection references
  * - Provides workflow trigger state via WorkflowTriggerStateService
  */
-public class WorkflowWrapper extends Area {
+public class WorkflowWrapper implements AutomationEntity {
 
     private final Workflow workflow;
     private final WorkflowData workflowData;
@@ -27,9 +29,9 @@ public class WorkflowWrapper extends Area {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public WorkflowWrapper(Workflow workflow,
-                          WorkflowData workflowData,
-                          WorkflowTriggerStateService stateService,
-                          ServiceConnectionRepository connectionRepository) {
+            WorkflowData workflowData,
+            WorkflowTriggerStateService stateService,
+            ServiceConnectionRepository connectionRepository) {
         this.workflow = workflow;
         this.workflowData = workflowData;
         this.stateService = stateService;
@@ -41,7 +43,6 @@ public class WorkflowWrapper extends Area {
         return workflow.getId();
     }
 
-    @Override
     public boolean isActive() {
         return workflow.isActive();
     }
@@ -122,11 +123,17 @@ public class WorkflowWrapper extends Area {
         GitHubActionConfig githubConfig = new GitHubActionConfig();
         githubConfig.setActionType(trigger.getType());
 
-        if (config.containsKey("repositoryOwner")) {
-            githubConfig.setRepositoryOwner((String) config.get("repositoryOwner"));
-        }
-        if (config.containsKey("repositoryName")) {
-            githubConfig.setRepositoryName((String) config.get("repositoryName"));
+        // [FIX] Support for combined repository field from JSON
+        if (config.containsKey("repository")) {
+            githubConfig.setRepository((String) config.get("repository"));
+        } else if (config.containsKey("repositoryName") || config.containsKey("repositoryOwner")) {
+            // Fallback to legacy fields
+            if (config.containsKey("repositoryOwner")) {
+                githubConfig.setRepositoryOwner((String) config.get("repositoryOwner"));
+            }
+            if (config.containsKey("repositoryName")) {
+                githubConfig.setRepositoryName((String) config.get("repositoryName"));
+            }
         }
 
         return githubConfig;
@@ -135,7 +142,7 @@ public class WorkflowWrapper extends Area {
     @Override
     public DiscordReactionConfig getDiscordConfig() {
         // This is used for reactions, not triggers
-        // Will be handled by ActionWrapper
+        // Will be handled by ActionWrapper or we can implement checking first action
         return null;
     }
 

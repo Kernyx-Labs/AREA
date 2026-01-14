@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "areas")
-public class Area {
+public class Area implements AutomationEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
