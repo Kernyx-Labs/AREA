@@ -37,7 +37,7 @@ public class WorkflowController {
     @GetMapping
     public ResponseEntity<ApiResponse<Map<String, Object>>> listWorkflows(
             @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
-        
+
         List<Workflow> workflows = activeOnly
                 ? workflowRepository.findByActive(true)
                 : workflowRepository.findAll();
@@ -171,7 +171,7 @@ public class WorkflowController {
     public ResponseEntity<ApiResponse<Map<String, Object>>> updateWorkflowStatus(
             @PathVariable Long id,
             @RequestBody Map<String, Boolean> request) {
-        
+
         Workflow workflow = workflowRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Workflow", id));
 

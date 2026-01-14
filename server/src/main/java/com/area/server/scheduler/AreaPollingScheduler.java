@@ -7,7 +7,9 @@ import com.area.server.repository.AreaExecutionLogRepository;
 import com.area.server.repository.AreaRepository;
 import com.area.server.service.TriggerStateService;
 import com.area.server.service.integration.executor.ActionExecutor;
+import com.area.server.service.integration.executor.ActionExecutorRegistry;
 import com.area.server.service.integration.executor.ReactionExecutor;
+import com.area.server.service.integration.executor.ReactionExecutorRegistry;
 import com.area.server.service.integration.executor.TriggerContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,19 +35,19 @@ public class AreaPollingScheduler {
     private final AreaRepository areaRepository;
     private final TriggerStateService stateService;
     private final AreaExecutionLogRepository logRepository;
-    private final ActionExecutor gmailActionExecutor;
-    private final ReactionExecutor discordReactionExecutor;
+    private final ActionExecutorRegistry actionExecutorRegistry;
+    private final ReactionExecutorRegistry reactionExecutorRegistry;
 
     public AreaPollingScheduler(AreaRepository areaRepository,
                                 TriggerStateService stateService,
                                 AreaExecutionLogRepository logRepository,
-                                ActionExecutor gmailActionExecutor,
-                                ReactionExecutor discordReactionExecutor) {
+                                ActionExecutorRegistry actionExecutorRegistry,
+                                ReactionExecutorRegistry reactionExecutorRegistry) {
         this.areaRepository = areaRepository;
         this.stateService = stateService;
         this.logRepository = logRepository;
-        this.gmailActionExecutor = gmailActionExecutor;
-        this.discordReactionExecutor = discordReactionExecutor;
+        this.actionExecutorRegistry = actionExecutorRegistry;
+        this.reactionExecutorRegistry = reactionExecutorRegistry;
     }
 
     @Scheduled(fixedDelayString = "${area.polling.interval:60000}",
@@ -102,41 +104,56 @@ public class AreaPollingScheduler {
             return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
         }
 
-        // Use the executor framework instead of hardcoded Gmail/Discord logic
-        return gmailActionExecutor.getTriggerContext(area)
+        // Get the appropriate executors based on the area's action and reaction types
+        String actionType = determineActionType(area);
+        String reactionType = determineReactionType(area);
+
+        ActionExecutor actionExecutor;
+        ReactionExecutor reactionExecutor;
+
+        try {
+            actionExecutor = actionExecutorRegistry.getExecutorForAction(actionType);
+            reactionExecutor = reactionExecutorRegistry.getExecutor(reactionType);
+        } catch (IllegalArgumentException e) {
+            logger.error("Failed to get executors for area {}: {}", area.getId(), e.getMessage());
+            stateService.recordFailure(area, e.getMessage());
+            logExecution(area, AreaExecutionLog.ExecutionStatus.FAILURE, null, e.getMessage(),
+                        System.currentTimeMillis() - startTime);
+            return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.FAILURE));
+        }
+
+        // Use the executor framework
+        return actionExecutor.getTriggerContext(area)
             .flatMap(context -> {
-                // Check if action was triggered
-                if (!context.has("newMessages") || context.getInteger("messageCount") == null
-                    || context.getInteger("messageCount") == 0) {
+                // For Gmail-specific logic
+                if (actionType.startsWith("gmail.")) {
+                    return processGmailAction(area, context, reactionExecutor, startTime);
+                }
+
+                // For Timer-specific logic
+                if (actionType.startsWith("timer.")) {
+                    return processTimerAction(area, context, reactionExecutor, startTime);
+                }
+
+                // Generic action processing - check if explicitly not triggered
+                Boolean triggered = context.getBoolean("triggered");
+                if (triggered != null && !triggered) {
                     stateService.updateCheckedTime(area);
-                    logger.debug("No new messages for area {}", area.getId());
+                    logger.debug("Action not triggered for area {}", area.getId());
                     return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
                 }
 
-                @SuppressWarnings("unchecked")
-                List<GmailMessage> newMessages = (List<GmailMessage>) context.get("newMessages");
+                logger.info("Area {} triggered with action type: {}", area.getId(), actionType);
 
-                if (!stateService.shouldTrigger(area, newMessages)) {
-                    stateService.updateCheckedTime(area);
-                    logger.debug("Messages found but should not trigger for area {}", area.getId());
-                    return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
-                }
-
-                GmailMessage latestMessage = newMessages.get(0);
-                Integer messageCount = context.getInteger("messageCount");
-                logger.info("Area {} triggered with {} new message(s). Latest: '{}'",
-                           area.getId(), messageCount, latestMessage.getSubject());
-
-                // Execute the reaction using the executor framework
-                return discordReactionExecutor.execute(area, context)
+                // Execute the reaction
+                return reactionExecutor.execute(area, context)
                     .then(Mono.fromRunnable(() -> {
-                        stateService.updateStateAfterSuccess(area, latestMessage, messageCount);
+                        stateService.updateCheckedTime(area);
 
                         long execTime = System.currentTimeMillis() - startTime;
-                        String logMessage = String.format("Sent notification for: %s (from: %s)",
-                                                         latestMessage.getSubject(), latestMessage.getFrom());
+                        String logMessage = String.format("Executed action: %s", actionType);
                         logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
-                                   messageCount, logMessage, execTime);
+                                   null, logMessage, execTime);
 
                         logger.info("Successfully processed area {} in {}ms", area.getId(), execTime);
                     }))
@@ -153,6 +170,114 @@ public class AreaPollingScheduler {
 
                 return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.FAILURE));
             });
+    }
+
+    private String determineActionType(Area area) {
+        // Check if actionType is explicitly set
+        if (area.getActionType() != null) {
+            return area.getActionType();
+        }
+
+        // Fallback to connection type for backward compatibility
+        if (area.getActionConnection() != null) {
+            switch (area.getActionConnection().getType()) {
+                case GMAIL:
+                    return "gmail.email_received";
+                case TIMER:
+                    return determineTimerActionType(area);
+                default:
+                    throw new IllegalStateException("Unknown action connection type: " + area.getActionConnection().getType());
+            }
+        }
+
+        throw new IllegalStateException("Area has no action type or action connection");
+    }
+
+    private String determineTimerActionType(Area area) {
+        if (area.getTimerConfig() != null && area.getTimerConfig().getTimerType() != null) {
+            return "timer." + area.getTimerConfig().getTimerType();
+        }
+        return "timer.recurring";
+    }
+
+    private String determineReactionType(Area area) {
+        // Check if reactionType is explicitly set
+        if (area.getReactionType() != null) {
+            return area.getReactionType();
+        }
+
+        // Fallback to connection type for backward compatibility
+        if (area.getReactionConnection() != null) {
+            switch (area.getReactionConnection().getType()) {
+                case DISCORD:
+                    return "discord.send_webhook";
+                default:
+                    throw new IllegalStateException("Unknown reaction connection type: " + area.getReactionConnection().getType());
+            }
+        }
+
+        throw new IllegalStateException("Area has no reaction type or reaction connection");
+    }
+
+    private Mono<ProcessingResult> processGmailAction(Area area, TriggerContext context,
+                                                       ReactionExecutor reactionExecutor, long startTime) {
+        // Check if there are new messages
+        if (!context.has("newMessages") || context.getInteger("messageCount") == null
+            || context.getInteger("messageCount") == 0) {
+            stateService.updateCheckedTime(area);
+            logger.debug("No new messages for area {}", area.getId());
+            return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
+        }
+
+        @SuppressWarnings("unchecked")
+        List<GmailMessage> newMessages = (List<GmailMessage>) context.get("newMessages");
+
+        if (!stateService.shouldTrigger(area, newMessages)) {
+            stateService.updateCheckedTime(area);
+            logger.debug("Messages found but should not trigger for area {}", area.getId());
+            return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
+        }
+
+        GmailMessage latestMessage = newMessages.get(0);
+        Integer messageCount = context.getInteger("messageCount");
+        logger.info("Area {} triggered with {} new message(s). Latest: '{}'",
+                   area.getId(), messageCount, latestMessage.getSubject());
+
+        // Execute the reaction
+        return reactionExecutor.execute(area, context)
+            .then(Mono.fromRunnable(() -> {
+                stateService.updateStateAfterSuccess(area, latestMessage, messageCount);
+
+                long execTime = System.currentTimeMillis() - startTime;
+                String logMessage = String.format("Sent notification for: %s (from: %s)",
+                                                 latestMessage.getSubject(), latestMessage.getFrom());
+                logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
+                           messageCount, logMessage, execTime);
+
+                logger.info("Successfully processed area {} in {}ms", area.getId(), execTime);
+            }))
+            .thenReturn(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SUCCESS));
+    }
+
+    private Mono<ProcessingResult> processTimerAction(Area area, TriggerContext context,
+                                                       ReactionExecutor reactionExecutor, long startTime) {
+        String timerType = context.getString("timerType");
+        logger.info("Area {} triggered with timer type: {}", area.getId(), timerType);
+
+        // Execute the reaction with timer context
+        return reactionExecutor.execute(area, context)
+            .then(Mono.fromRunnable(() -> {
+                stateService.updateStateAfterTimerSuccess(area);
+
+                long execTime = System.currentTimeMillis() - startTime;
+                String logMessage = String.format("Timer triggered: %s at %s",
+                                                 timerType, context.getString("time"));
+                logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
+                           null, logMessage, execTime);
+
+                logger.info("Successfully processed timer area {} in {}ms", area.getId(), execTime);
+            }))
+            .thenReturn(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SUCCESS));
     }
 
     private void logExecution(Area area, AreaExecutionLog.ExecutionStatus status,

@@ -78,7 +78,9 @@ const statusType = ref('info') // 'info', 'success', 'error', 'warning'
 const isLoading = ref(false)
 
 const canSave = computed(() => {
-  return trigger.value !== null && workflowName.value.trim() !== ''
+  return trigger.value !== null &&
+         actions.value.length > 0 &&
+         workflowName.value.trim() !== ''
 })
 
 function handleDragStart(data) {
@@ -105,7 +107,7 @@ function handleActionsChange(newActions) {
 
 async function testWorkflow() {
   if (!canSave.value) {
-    showStatus('Please add a trigger and name your workflow first', 'warning')
+    showStatus('Please add a trigger, an action, and name your workflow first', 'warning')
     return
   }
 
@@ -127,7 +129,7 @@ async function testWorkflow() {
 
 async function saveWorkflow() {
   if (!canSave.value) {
-    showStatus('Please add a trigger and name your workflow first', 'warning')
+    showStatus('Please add a trigger, an action, and name your workflow first', 'warning')
     return
   }
 
@@ -137,13 +139,16 @@ async function saveWorkflow() {
   try {
     const workflowData = buildWorkflowData()
 
-    // Check if this is a Gmail → Discord workflow (legacy AREA format)
-    if (
-      trigger.value.serviceName === 'Gmail' &&
-      actions.value.length > 0 &&
-      actions.value[0].serviceName === 'Discord'
-    ) {
+    // Check if this workflow should be saved as an Area (gets polled by scheduler)
+    const isTimerWorkflow = trigger.value.serviceName === 'Timer'
+    const isGmailDiscord = trigger.value.serviceName === 'Gmail' &&
+                           actions.value.length > 0 &&
+                           actions.value[0].serviceName === 'Discord'
+
+    if (isGmailDiscord) {
       await saveAsArea(workflowData)
+    } else if (isTimerWorkflow && actions.value[0].serviceName === 'Discord') {
+      await saveAsTimerArea(workflowData)
     } else {
       await saveAsWorkflow(workflowData)
     }
@@ -165,6 +170,10 @@ async function saveWorkflow() {
 function buildWorkflowData() {
   if (!trigger.value) {
     throw new Error('Trigger is required')
+  }
+
+  if (!actions.value || actions.value.length === 0) {
+    throw new Error('At least one action is required')
   }
 
   return {
@@ -213,7 +222,7 @@ async function saveAsArea(workflowData) {
 
   // Extract config
   const triggerConfig = workflowData.trigger.config || {}
-  const actionConfig = workflowData.actions[0]?.config || {}
+  const actionConfig = workflowData.action?.config || {}
 
   const areaData = {
     actionConnectionId: gmailConnection.id,
@@ -229,11 +238,59 @@ async function saveAsArea(workflowData) {
   await api.createArea(areaData)
 }
 
+async function saveAsTimerArea(workflowData) {
+  // Get Discord service connection
+  const connections = await api.getConnectedServices()
+  const discordConnection = connections.find(c => c.type === 'DISCORD')
+
+  if (!discordConnection) {
+    throw new Error('Discord not connected. Please connect Discord in Services page.')
+  }
+
+  // Extract channel ID from Discord connection metadata
+  let discordChannelId = null
+  if (discordConnection.metadata) {
+    try {
+      const metadata = JSON.parse(discordConnection.metadata)
+      discordChannelId = metadata.channelId
+    } catch (e) {
+      console.error('Failed to parse Discord metadata:', e)
+    }
+  }
+
+  if (!discordChannelId) {
+    throw new Error('Discord channel ID not found in connection. Please reconnect Discord in Services page.')
+  }
+
+  // Extract config
+  const triggerConfig = workflowData.trigger.config || {}
+  const actionConfig = workflowData.action?.config || {}
+
+  // Determine timer type from event name
+  const timerType = workflowData.trigger.event.replace('timer.', '')
+
+  const areaData = {
+    timerConnectionId: null, // Timer doesn't require connection (time-based)
+    reactionConnectionId: discordConnection.id,
+    timerType: timerType,
+    intervalMinutes: triggerConfig.intervalMinutes || 5,
+    daysCount: triggerConfig.daysCount || null,
+    targetDay: triggerConfig.targetDay || null,
+    discordChannelName: actionConfig.channelName || 'general',
+    discordMessageTemplate: actionConfig.message || actionConfig.messageTemplate ||
+      '⏰ Timer Alert!\nCurrent Date: {{date}}\nCurrent Time: {{time}}\nDay: {{dayOfWeek}}',
+    actionType: workflowData.trigger.event,
+    reactionType: 'discord.send_webhook'
+  }
+
+  await api.createTimerArea(areaData)
+}
+
 async function saveAsWorkflow(workflowData) {
   // Inject connection IDs
   try {
     const connections = await api.getConnectedServices()
-    
+
     // Inject for trigger
     const triggerService = workflowData.trigger.service.toUpperCase()
     const triggerConnection = connections.find(c => c.type === triggerService)
@@ -302,7 +359,20 @@ async function loadWorkflow() {
       }
     }
 
-    if (workflow.actions && workflow.actions.length > 0) {
+    // Handle both old format (actions array) and new format (single action)
+    if (workflow.action) {
+      // New format: single action
+      actions.value = [{
+        id: 'action-1',
+        serviceName: workflow.action.service,
+        eventName: workflow.action.event,
+        config: workflow.action.config || {},
+        serviceColor: '#5b9bd5',
+        serviceIcon: null,
+        configFields: []
+      }]
+    } else if (workflow.actions && workflow.actions.length > 0) {
+      // Old format: actions array
       actions.value = workflow.actions.map((action, index) => ({
         id: `action-${index + 1}`,
         serviceName: action.service,

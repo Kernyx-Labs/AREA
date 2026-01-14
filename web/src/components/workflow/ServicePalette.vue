@@ -234,7 +234,7 @@ function handleDragStart(event, service, eventData, eventType) {
     serviceName: service.name,
     serviceColor: getServiceColor(service.name),
     serviceIcon: getServiceIcon(service.name),
-    eventName: eventData.name,
+    eventName: eventData.name,  // Display name for UI
     eventDescription: eventData.description,
     eventType: eventType, // 'trigger' or 'action'
     eventId: eventData.id,

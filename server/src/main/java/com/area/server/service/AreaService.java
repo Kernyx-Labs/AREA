@@ -8,6 +8,7 @@ import com.area.server.model.AreaTriggerState;
 import com.area.server.model.DiscordReactionConfig;
 import com.area.server.model.GmailActionConfig;
 import com.area.server.model.ServiceConnection;
+import com.area.server.model.TimerActionConfig;
 import com.area.server.repository.AreaExecutionLogRepository;
 import com.area.server.repository.AreaRepository;
 import com.area.server.repository.AreaTriggerStateRepository;
@@ -69,6 +70,43 @@ public class AreaService {
 
         Area savedArea = areaRepository.save(area);
         logger.info("Created new AREA with ID: {}", savedArea.getId());
+
+        return savedArea;
+    }
+
+    @Transactional
+    public Area createTimerArea(Long timerConnectionId,
+                                Long reactionConnectionId,
+                                TimerActionConfig timerConfig,
+                                DiscordReactionConfig discordConfig,
+                                String actionType,
+                                String reactionType) {
+        // For Timer, we might not have an actual connection (it's time-based)
+        // So we'll create a dummy connection or make it optional
+        ServiceConnection timerConnection = null;
+        if (timerConnectionId != null) {
+            timerConnection = connectionService.findById(timerConnectionId);
+            if (timerConnection.getType() != ServiceConnection.ServiceType.TIMER) {
+                throw new ValidationException("actionConnection", "Action connection must be of type TIMER");
+            }
+        }
+
+        ServiceConnection reactionConnection = connectionService.findById(reactionConnectionId);
+        if (reactionConnection.getType() != ServiceConnection.ServiceType.DISCORD) {
+            throw new ValidationException("reactionConnection", "Reaction connection must be of type DISCORD");
+        }
+
+        Area area = new Area();
+        area.setActionConnection(timerConnection);
+        area.setReactionConnection(reactionConnection);
+        area.setTimerConfig(timerConfig);
+        area.setDiscordConfig(discordConfig);
+        area.setActionType(actionType);
+        area.setReactionType(reactionType);
+        area.setActive(true);
+
+        Area savedArea = areaRepository.save(area);
+        logger.info("Created new Timer AREA with ID: {}", savedArea.getId());
 
         return savedArea;
     }
