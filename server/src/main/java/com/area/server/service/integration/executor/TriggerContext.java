@@ -40,6 +40,14 @@ public class TriggerContext {
         return null;
     }
 
+    public Boolean getBoolean(String key) {
+        Object value = data.get(key);
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        return null;
+    }
+
     public Map<String, Object> getData() {
         return new HashMap<>(data);
     }

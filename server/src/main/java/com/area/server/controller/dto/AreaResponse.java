@@ -9,6 +9,7 @@ public class AreaResponse {
     private Long reactionConnectionId;
     private GmailConfigDto gmailConfig;
     private DiscordConfigDto discordConfig;
+    private TimerConfigDto timerConfig;
     private boolean active;
     private TriggerStateDto triggerState;
 
@@ -98,6 +99,54 @@ public class AreaResponse {
 
         public void setMessageTemplate(String messageTemplate) {
             this.messageTemplate = messageTemplate;
+        }
+    }
+
+    public static class TimerConfigDto {
+        private String timerType;
+        private Integer intervalMinutes;
+        private Integer daysCount;
+        private String targetDay;
+
+        public TimerConfigDto() {}
+
+        public TimerConfigDto(String timerType, Integer intervalMinutes, Integer daysCount, String targetDay) {
+            this.timerType = timerType;
+            this.intervalMinutes = intervalMinutes;
+            this.daysCount = daysCount;
+            this.targetDay = targetDay;
+        }
+
+        public String getTimerType() {
+            return timerType;
+        }
+
+        public void setTimerType(String timerType) {
+            this.timerType = timerType;
+        }
+
+        public Integer getIntervalMinutes() {
+            return intervalMinutes;
+        }
+
+        public void setIntervalMinutes(Integer intervalMinutes) {
+            this.intervalMinutes = intervalMinutes;
+        }
+
+        public Integer getDaysCount() {
+            return daysCount;
+        }
+
+        public void setDaysCount(Integer daysCount) {
+            this.daysCount = daysCount;
+        }
+
+        public String getTargetDay() {
+            return targetDay;
+        }
+
+        public void setTargetDay(String targetDay) {
+            this.targetDay = targetDay;
         }
     }
 
@@ -200,6 +249,14 @@ public class AreaResponse {
 
     public void setDiscordConfig(DiscordConfigDto discordConfig) {
         this.discordConfig = discordConfig;
+    }
+
+    public TimerConfigDto getTimerConfig() {
+        return timerConfig;
+    }
+
+    public void setTimerConfig(TimerConfigDto timerConfig) {
+        this.timerConfig = timerConfig;
     }
 
     public boolean isActive() {

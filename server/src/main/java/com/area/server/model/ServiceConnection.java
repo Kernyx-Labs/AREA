@@ -8,7 +8,8 @@ public class ServiceConnection {
 
     public enum ServiceType {
         GMAIL,
-        DISCORD
+        DISCORD,
+        TIMER
     }
 
     @Id

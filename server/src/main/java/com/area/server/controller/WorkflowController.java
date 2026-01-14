@@ -71,17 +71,29 @@ public class WorkflowController {
      */
     @PostMapping
     public ResponseEntity<ApiResponse<Map<String, Object>>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
+        // Validate required fields
+        if (request.getTrigger() == null) {
+            throw new IllegalArgumentException("Trigger configuration is required");
+        }
+        if (request.getAction() == null) {
+            throw new IllegalArgumentException("Action configuration is required");
+        }
+
         Workflow workflow = new Workflow();
         workflow.setName(request.getName());
-        workflow.setDescription("Trigger: " + request.getTrigger().getService() + " → Action: " + request.getAction().getService());
+
+        // Build description with null-safe access
+        String triggerService = request.getTrigger().getService() != null ? request.getTrigger().getService() : "Unknown";
+        String actionService = request.getAction().getService() != null ? request.getAction().getService() : "Unknown";
+        workflow.setDescription("Trigger: " + triggerService + " → Action: " + actionService);
         workflow.setActive(true); // Start active by default
 
         // Store the workflow data as JSON
         try {
-            Map<String, Object> workflowData = Map.of(
-                    "trigger", request.getTrigger(),
-                    "action", request.getAction()
-            );
+            Map<String, Object> workflowData = new HashMap<>();
+            workflowData.put("trigger", request.getTrigger());
+            workflowData.put("action", request.getAction());
+
             String workflowDataJson = objectMapper.writeValueAsString(workflowData);
             workflow.setWorkflowData(workflowDataJson);
         } catch (Exception e) {

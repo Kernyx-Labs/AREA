@@ -180,6 +180,14 @@ export const api = {
     });
   },
 
+  // Create a new timer area (Timer → Discord)
+  async createTimerArea(areaData) {
+    return await authenticatedFetch(`${API_URL}/api/areas/timer`, {
+      method: 'POST',
+      body: JSON.stringify(areaData),
+    });
+  },
+
   // Delete an area
   async deleteArea(id) {
     await authenticatedFetch(`${API_URL}/api/areas/${id}`, {

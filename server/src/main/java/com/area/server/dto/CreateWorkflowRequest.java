@@ -1,10 +1,18 @@
 package com.area.server.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import java.util.Map;
 
 public class CreateWorkflowRequest {
     private String name;
+
+    @NotNull(message = "Trigger configuration is required")
+    @Valid
     private TriggerConfig trigger;
+
+    @NotNull(message = "Action configuration is required")
+    @Valid
     private ActionConfig action;
 
     public static class TriggerConfig {

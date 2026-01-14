@@ -14,7 +14,7 @@ public class Area {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(optional = true)  // Optional for Timer service
     private ServiceConnection actionConnection;
 
     @ManyToOne(optional = false)
@@ -25,6 +25,15 @@ public class Area {
 
     @Embedded
     private DiscordReactionConfig discordConfig;
+
+    @Embedded
+    private TimerActionConfig timerConfig;
+
+    @Column(name = "action_type")
+    private String actionType; // e.g., "gmail.email_received", "timer.current_time"
+
+    @Column(name = "reaction_type")
+    private String reactionType; // e.g., "discord.send_message"
 
     private boolean active = true;
 
@@ -72,6 +81,30 @@ public class Area {
 
     public void setDiscordConfig(DiscordReactionConfig discordConfig) {
         this.discordConfig = discordConfig;
+    }
+
+    public TimerActionConfig getTimerConfig() {
+        return timerConfig;
+    }
+
+    public void setTimerConfig(TimerActionConfig timerConfig) {
+        this.timerConfig = timerConfig;
+    }
+
+    public String getActionType() {
+        return actionType;
+    }
+
+    public void setActionType(String actionType) {
+        this.actionType = actionType;
+    }
+
+    public String getReactionType() {
+        return reactionType;
+    }
+
+    public void setReactionType(String reactionType) {
+        this.reactionType = reactionType;
     }
 
     @SuppressWarnings("unused")
