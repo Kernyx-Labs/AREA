@@ -171,12 +171,12 @@ function buildWorkflowData() {
     name: workflowName.value.trim(),
     trigger: {
       service: trigger.value.serviceName,
-      event: trigger.value.eventName,
+      type: trigger.value.eventId,
       config: trigger.value.config || {}
     },
     actions: actions.value.map(action => ({
       service: action.serviceName,
-      event: action.eventName,
+      type: action.eventId,
       config: action.config || {}
     }))
   }
