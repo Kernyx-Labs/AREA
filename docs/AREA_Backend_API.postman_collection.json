@@ -669,6 +669,102 @@
 			"description": "Discord bot connection and testing endpoints."
 		},
 		{
+			"name": "GitHub Service",
+			"item": [
+				{
+					"name": "Get GitHub Auth URL",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/services/github/auth-url",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "github", "auth-url"]
+						},
+						"description": "Returns the GitHub OAuth URL to start the authentication flow. Users should visit this URL in their browser.\n\n**Requires:** User must be authenticated (Bearer token)\n\n**Returns:**\n- Authorization URL\n- Redirect URI\n- Instructions"
+					},
+					"response": []
+				},
+				{
+					"name": "GitHub OAuth Callback",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/github/callback?code=abc123&state=xyz789",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "github", "callback"],
+							"query": [
+								{
+									"key": "code",
+									"value": "abc123",
+									"description": "Authorization code from GitHub"
+								},
+								{
+									"key": "state",
+									"value": "xyz789",
+									"description": "State token for security validation"
+								}
+							]
+						},
+						"description": "OAuth callback endpoint. GitHub redirects here after user authorization. Do not call this manually - it's handled by the OAuth flow.\n\n**Returns:** HTML page with success/error message that auto-closes after 3 seconds."
+					},
+					"response": []
+				},
+				{
+					"name": "Get GitHub Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/services/github/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "github", "status"]
+						},
+						"description": "Checks if GitHub OAuth is properly configured and returns the count of existing GitHub connections.\n\n**Returns:**\n- Whether OAuth is configured\n- Client ID presence\n- Client secret presence\n- Redirect URI\n- Count of existing connections"
+					},
+					"response": []
+				},
+				{
+					"name": "Get GitHub Repositories",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{access_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/services/github/repositories?page=1&per_page=100",
+							"host": ["{{base_url}}"],
+							"path": ["api", "services", "github", "repositories"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number (default: 1)"
+								},
+								{
+									"key": "per_page",
+									"value": "100",
+									"description": "Results per page (default: 100, max: 100)"
+								}
+							]
+						},
+						"description": "Fetches repositories accessible to the authenticated user from their GitHub account.\n\n**Requires:**\n- User must be authenticated (Bearer token)\n- User must have an active GitHub connection (OAuth completed)\n\n**Filters:**\n- Only returns repositories where user has push or admin access\n- Sorted by most recently updated\n- Includes personal repos, org repos, and repos where user is a collaborator\n\n**Returns:**\n- Array of repositories with:\n  - `full_name`: Repository in \"owner/repo\" format\n  - `description`: Repository description\n  - `private`: Whether the repository is private\n  - `html_url`: GitHub URL to the repository\n\n**Error Responses:**\n- 401: User not authenticated or GitHub token expired\n- 404: No GitHub connection found (need to connect GitHub first)\n- 500: GitHub API error\n\n**Usage:**\nThis endpoint is used by the frontend to populate repository dropdowns when configuring GitHub triggers and actions."
+					},
+					"response": []
+				}
+			],
+			"description": "GitHub OAuth authentication, status, and repository listing endpoints."
+		},
+		{
 			"name": "Service Registry",
 			"item": [
 				{
