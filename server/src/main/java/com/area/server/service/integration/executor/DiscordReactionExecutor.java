@@ -1,6 +1,7 @@
 package com.area.server.service.integration.executor;
 
 import com.area.server.dto.GmailMessage;
+import com.area.server.logging.ExternalApiLogger;
 import com.area.server.model.Area;
 import com.area.server.model.ServiceConnection;
 import com.area.server.service.DiscordService;
@@ -20,11 +21,14 @@ import java.util.Map;
 public class DiscordReactionExecutor implements ReactionExecutor {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscordReactionExecutor.class);
+    private static final String EXECUTOR_NAME = "DiscordReactionExecutor";
 
     private final DiscordService discordService;
+    private final ExternalApiLogger apiLogger;
 
-    public DiscordReactionExecutor(DiscordService discordService) {
+    public DiscordReactionExecutor(DiscordService discordService, ExternalApiLogger apiLogger) {
         this.discordService = discordService;
+        this.apiLogger = apiLogger;
     }
 
     @Override
@@ -34,32 +38,42 @@ public class DiscordReactionExecutor implements ReactionExecutor {
 
     @Override
     public Mono<Void> execute(Area area, TriggerContext context) {
+        apiLogger.logOperation("Discord-Executor", "EXECUTE_START",
+            String.format("Area ID: %d, Context keys: %s", area.getId(), context.getData().keySet()));
+
         // Get the Discord ServiceConnection (contains bot token and channel ID)
         ServiceConnection reactionConnection = area.getReactionConnection();
 
         if (reactionConnection == null) {
-            logger.error("No reaction connection found for area {}", area.getId());
+            logger.error("[{}] No reaction connection found for area {}", EXECUTOR_NAME, area.getId());
             return Mono.error(new IllegalStateException("Discord connection not configured for this area"));
         }
 
         if (reactionConnection.getType() != ServiceConnection.ServiceType.DISCORD) {
-            logger.error("Reaction connection is not Discord for area {}", area.getId());
+            logger.error("[{}] Reaction connection is not Discord for area {} (found: {})",
+                EXECUTOR_NAME, area.getId(), reactionConnection.getType());
             return Mono.error(new IllegalStateException("Invalid reaction connection type"));
         }
+
+        logger.debug("[{}] Using ServiceConnection ID: {}, Type: {}",
+            EXECUTOR_NAME, reactionConnection.getId(), reactionConnection.getType());
 
         // Extract bot token and channel ID
         String botToken = reactionConnection.getAccessToken();
         String channelId = discordService.extractChannelId(reactionConnection.getMetadata());
 
         if (botToken == null || botToken.isBlank()) {
-            logger.error("Bot token is missing for area {}", area.getId());
+            logger.error("[{}] Bot token is missing for area {}", EXECUTOR_NAME, area.getId());
             return Mono.error(new IllegalStateException("Discord bot token not found in connection"));
         }
 
         if (channelId == null || channelId.isBlank()) {
-            logger.error("Channel ID is missing for area {}", area.getId());
+            logger.error("[{}] Channel ID is missing for area {} (metadata: {})",
+                EXECUTOR_NAME, area.getId(), reactionConnection.getMetadata());
             return Mono.error(new IllegalStateException("Discord channel ID not found in connection metadata"));
         }
+
+        logger.debug("[{}] Target channel: {}, Token present: true", EXECUTOR_NAME, channelId);
 
         // Check if we should use custom template or rich embed
         String messageTemplate = area.getDiscordConfig() != null
@@ -69,16 +83,25 @@ public class DiscordReactionExecutor implements ReactionExecutor {
         // If context contains a Gmail message and no custom template, send rich embed
         if (context.has("latestMessage") && (messageTemplate == null || messageTemplate.isBlank())) {
             GmailMessage message = (GmailMessage) context.get("latestMessage");
-            logger.info("Sending Discord rich embed for area {} with email: {}",
-                       area.getId(), message.getSubject());
-            return discordService.sendRichEmbedViaBotApi(botToken, channelId, message);
+            apiLogger.logOperation("Discord-Executor", "SEND_RICH_EMBED",
+                String.format("Area: %d, Channel: %s, Email subject: '%s'",
+                    area.getId(), channelId, message.getSubject()));
+            return discordService.sendRichEmbedViaBotApi(botToken, channelId, message)
+                .doOnSuccess(v -> apiLogger.logOperation("Discord-Executor", "SEND_SUCCESS",
+                    String.format("Rich embed sent for area %d", area.getId())));
         }
 
         // Otherwise, send formatted text message using custom template
         String messageContent = formatMessage(area, context);
-        logger.info("Sending Discord message for area {} to channel {}: {}",
-                   area.getId(), channelId, messageContent);
-        return discordService.sendMessageViaBotApi(botToken, channelId, messageContent);
+        apiLogger.logOperation("Discord-Executor", "SEND_MESSAGE",
+            String.format("Area: %d, Channel: %s, Content length: %d",
+                area.getId(), channelId, messageContent.length()));
+        logger.debug("[{}] Message content: {}", EXECUTOR_NAME,
+            messageContent.length() > 100 ? messageContent.substring(0, 100) + "..." : messageContent);
+
+        return discordService.sendMessageViaBotApi(botToken, channelId, messageContent)
+            .doOnSuccess(v -> apiLogger.logOperation("Discord-Executor", "SEND_SUCCESS",
+                String.format("Message sent for area %d", area.getId())));
     }
 
     private String formatMessage(Area area, TriggerContext context) {

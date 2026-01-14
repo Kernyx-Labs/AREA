@@ -1,7 +1,9 @@
 package com.area.server.service.integration.executor;
 
+import com.area.server.logging.ExternalApiLogger;
 import com.area.server.model.Area;
 import com.area.server.model.GitHubReactionConfig;
+import com.area.server.model.ServiceConnection;
 import com.area.server.service.GitHubService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,11 +18,14 @@ import reactor.core.publisher.Mono;
 public class GitHubIssueReactionExecutor implements ReactionExecutor {
 
     private static final Logger logger = LoggerFactory.getLogger(GitHubIssueReactionExecutor.class);
+    private static final String EXECUTOR_NAME = "GitHubIssueReactionExecutor";
 
     private final GitHubService githubService;
+    private final ExternalApiLogger apiLogger;
 
-    public GitHubIssueReactionExecutor(GitHubService githubService) {
+    public GitHubIssueReactionExecutor(GitHubService githubService, ExternalApiLogger apiLogger) {
         this.githubService = githubService;
+        this.apiLogger = apiLogger;
     }
 
     @Override
@@ -30,40 +35,64 @@ public class GitHubIssueReactionExecutor implements ReactionExecutor {
 
     @Override
     public Mono<Void> execute(Area area, TriggerContext context) {
+        apiLogger.logOperation("GitHub-Executor", "EXECUTE_START",
+            String.format("Area ID: %d, Reaction type: create_issue, Context keys: %s",
+                area.getId(), context.getData().keySet()));
+
         GitHubReactionConfig config = area.getGithubReactionConfig();
 
         if (config == null || !"create_issue".equals(config.getReactionType())) {
-            logger.warn("GitHub create_issue reaction not configured for area {}", area.getId());
+            logger.warn("[{}] GitHub create_issue reaction not configured for area {}", EXECUTOR_NAME, area.getId());
             return Mono.empty();
         }
 
+        logger.debug("[{}] Config - Repo: {}/{}, Title template: '{}', Labels: {}",
+            EXECUTOR_NAME,
+            config.getRepositoryOwner(),
+            config.getRepositoryName(),
+            config.getIssueTitle(),
+            config.getLabels());
+
         if (config.getRepositoryOwner() == null || config.getRepositoryName() == null) {
-            logger.error("GitHub repository not configured for area {}", area.getId());
+            logger.error("[{}] GitHub repository not configured for area {}", EXECUTOR_NAME, area.getId());
             return Mono.error(new IllegalStateException("GitHub repository not configured"));
         }
 
         if (config.getIssueTitle() == null || config.getIssueTitle().isBlank()) {
-            logger.error("GitHub issue title not configured for area {}", area.getId());
+            logger.error("[{}] GitHub issue title not configured for area {}", EXECUTOR_NAME, area.getId());
             return Mono.error(new IllegalStateException("GitHub issue title not configured"));
         }
 
-        logger.info("Executing GitHub create_issue reaction for area {}", area.getId());
+        ServiceConnection connection = area.getReactionConnection();
+        if (connection == null) {
+            logger.error("[{}] No reaction connection found for area {}", EXECUTOR_NAME, area.getId());
+            return Mono.error(new IllegalStateException("GitHub connection not configured"));
+        }
 
-        return githubService.createIssue(
-                area.getReactionConnection(),
-                config,
-                context
-            )
-            .doOnSuccess(response ->
-                logger.info("Successfully created issue #{} in {}/{} for area {}",
-                          response.getNumber(),
-                          config.getRepositoryOwner(),
-                          config.getRepositoryName(),
-                          area.getId()))
+        logger.debug("[{}] Using ServiceConnection ID: {}, Type: {}",
+            EXECUTOR_NAME, connection.getId(), connection.getType());
+
+        apiLogger.logOperation("GitHub-Executor", "CREATE_ISSUE",
+            String.format("Area: %d, Repo: %s/%s, Title: '%s'",
+                area.getId(),
+                config.getRepositoryOwner(),
+                config.getRepositoryName(),
+                config.getIssueTitle()));
+
+        return githubService.createIssue(connection, config, context)
+            .doOnSuccess(response -> {
+                apiLogger.logOperation("GitHub-Executor", "CREATE_ISSUE_SUCCESS",
+                    String.format("Created issue #%d in %s/%s for area %d: %s",
+                        response.getNumber(),
+                        config.getRepositoryOwner(),
+                        config.getRepositoryName(),
+                        area.getId(),
+                        response.getHtmlUrl()));
+            })
             .then()
             .onErrorResume(error -> {
-                logger.error("Failed to create GitHub issue for area {}: {}",
-                           area.getId(), error.getMessage());
+                logger.error("[{}] Failed to create GitHub issue for area {}: {}",
+                    EXECUTOR_NAME, area.getId(), error.getMessage());
                 return Mono.error(error);
             });
     }

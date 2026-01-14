@@ -1,5 +1,6 @@
 package com.area.server.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.Instant;
 
@@ -10,6 +11,11 @@ public class Workflow {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @Column(nullable = false)
     private String name;
@@ -25,6 +31,16 @@ public class Workflow {
 
     @Column(name = "updated_at")
     private Instant updatedAt = Instant.now();
+
+    // ServiceConnection for the trigger (action)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trigger_connection_id")
+    private ServiceConnection triggerConnection;
+
+    // ServiceConnection for reactions (may be null if reactions don't need auth)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reaction_connection_id")
+    private ServiceConnection reactionConnection;
 
     // Workflow configuration stored as JSON
     @Column(columnDefinition = "TEXT")
@@ -84,6 +100,30 @@ public class Workflow {
 
     public void setWorkflowData(String workflowData) {
         this.workflowData = workflowData;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public ServiceConnection getTriggerConnection() {
+        return triggerConnection;
+    }
+
+    public void setTriggerConnection(ServiceConnection triggerConnection) {
+        this.triggerConnection = triggerConnection;
+    }
+
+    public ServiceConnection getReactionConnection() {
+        return reactionConnection;
+    }
+
+    public void setReactionConnection(ServiceConnection reactionConnection) {
+        this.reactionConnection = reactionConnection;
     }
 
     @PreUpdate

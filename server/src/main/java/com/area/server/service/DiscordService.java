@@ -1,11 +1,13 @@
 package com.area.server.service;
 
 import com.area.server.dto.GmailMessage;
+import com.area.server.logging.ExternalApiLogger;
 import com.area.server.model.DiscordReactionConfig;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ import java.util.regex.Pattern;
 public class DiscordService {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscordService.class);
+    private static final String SERVICE_NAME = "Discord";
     private static final DateTimeFormatter TIME_FORMATTER =
         DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\{([^}]+)\\}");
@@ -34,12 +37,16 @@ public class DiscordService {
     private final WebClient discordClient;
     private final WebClient discordBotClient;
     private final ObjectMapper objectMapper;
+    private final ExternalApiLogger apiLogger;
 
-    public DiscordService(WebClient.Builder builder, ObjectMapper objectMapper) {
-        this.discordClient = builder.build();
-        // Client for Discord Bot API
-        this.discordBotClient = builder.baseUrl("https://discord.com/api/v10").build();
+    public DiscordService(@Qualifier("discordWebClient") WebClient discordClient,
+                          @Qualifier("discordBotWebClient") WebClient discordBotClient,
+                          ObjectMapper objectMapper,
+                          ExternalApiLogger apiLogger) {
+        this.discordClient = discordClient;
+        this.discordBotClient = discordBotClient;
         this.objectMapper = objectMapper;
+        this.apiLogger = apiLogger;
     }
 
     public Mono<Void> sendMessage(DiscordReactionConfig config, String content) {
@@ -57,7 +64,16 @@ public class DiscordService {
             "embeds", List.of(embed)
         );
 
-        logger.debug("Sending Discord embed for email: {}", email.getSubject());
+        apiLogger.logOperation(SERVICE_NAME, "SEND_EMBED",
+            String.format("Sending embed for email: subject='%s', from='%s'",
+                email.getSubject(), email.getFrom()));
+
+        try {
+            String payloadJson = objectMapper.writeValueAsString(payload);
+            logger.debug("[Discord] Webhook payload: {}", payloadJson);
+        } catch (JsonProcessingException e) {
+            logger.debug("[Discord] Could not serialize payload for logging");
+        }
 
         return discordClient.post()
             .uri(config.getWebhookUrl())
@@ -67,7 +83,7 @@ public class DiscordService {
             .onStatus(
                 status -> status.is4xxClientError(),
                 response -> {
-                    logger.error("Discord webhook returned 4xx error");
+                    logger.error("[Discord] Webhook returned 4xx error - check webhook URL validity");
                     return Mono.error(new IllegalArgumentException("Invalid Discord webhook URL or configuration"));
                 }
             )
@@ -75,11 +91,12 @@ public class DiscordService {
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
                 .filter(throwable -> !(throwable instanceof IllegalArgumentException))
                 .doBeforeRetry(signal ->
-                    logger.warn("Retrying Discord webhook call (attempt {})", signal.totalRetries() + 1)
+                    logger.warn("[Discord] Retrying webhook call (attempt {})", signal.totalRetries() + 1)
                 ))
-            .doOnSuccess(v -> logger.info("Successfully sent Discord notification for email: {}", email.getSubject()))
+            .doOnSuccess(v -> apiLogger.logOperation(SERVICE_NAME, "SEND_SUCCESS",
+                String.format("Notification sent for email: %s", email.getSubject())))
             .onErrorResume(error -> {
-                logger.error("Failed to send Discord notification: {}", error.getMessage());
+                logger.error("[Discord] Failed to send notification: {}", error.getMessage());
                 return Mono.error(error);
             });
     }
@@ -94,6 +111,10 @@ public class DiscordService {
             "username", "AREA Bot"
         );
 
+        apiLogger.logOperation(SERVICE_NAME, "SEND_MESSAGE",
+            String.format("Sending message via webhook, content length: %d chars", content.length()));
+        logger.debug("[Discord] Message content: {}", content.length() > 100 ? content.substring(0, 100) + "..." : content);
+
         return discordClient.post()
             .uri(config.getWebhookUrl())
             .contentType(MediaType.APPLICATION_JSON)
@@ -106,9 +127,9 @@ public class DiscordService {
             .bodyToMono(Void.class)
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
                 .filter(throwable -> !(throwable instanceof IllegalArgumentException)))
-            .doOnSuccess(v -> logger.debug("Successfully sent Discord message"))
+            .doOnSuccess(v -> logger.debug("[Discord] Message sent successfully via webhook"))
             .onErrorResume(error -> {
-                logger.error("Failed to send Discord message: {}", error.getMessage());
+                logger.error("[Discord] Failed to send message: {}", error.getMessage());
                 return Mono.error(error);
             });
     }
@@ -232,7 +253,9 @@ public class DiscordService {
 
         Map<String, Object> payload = Map.of("content", truncate(messageContent, 2000));
 
-        logger.debug("Sending Discord message via Bot API to channel: {}", channelId);
+        apiLogger.logOperation(SERVICE_NAME, "BOT_SEND_MESSAGE",
+            String.format("Sending to channel %s, content length: %d chars", channelId, messageContent.length()));
+        logger.debug("[Discord-Bot] Message content: {}", messageContent.length() > 100 ? messageContent.substring(0, 100) + "..." : messageContent);
 
         return discordBotClient.post()
             .uri("/channels/{channelId}/messages", channelId)
@@ -243,7 +266,7 @@ public class DiscordService {
             .onStatus(
                 status -> status.is4xxClientError(),
                 response -> {
-                    logger.error("Discord Bot API returned 4xx error for channel {}", channelId);
+                    logger.error("[Discord-Bot] API returned 4xx error for channel {}", channelId);
                     return Mono.error(new IllegalArgumentException(
                         "Invalid Discord bot token, channel ID, or insufficient permissions"));
                 }
@@ -251,7 +274,7 @@ public class DiscordService {
             .onStatus(
                 status -> status.is5xxServerError(),
                 response -> {
-                    logger.error("Discord API server error");
+                    logger.error("[Discord-Bot] API server error");
                     return Mono.error(new RuntimeException("Discord API is temporarily unavailable"));
                 }
             )
@@ -259,11 +282,12 @@ public class DiscordService {
             .retryWhen(Retry.backoff(3, Duration.ofSeconds(2))
                 .filter(throwable -> !(throwable instanceof IllegalArgumentException))
                 .doBeforeRetry(signal ->
-                    logger.warn("Retrying Discord Bot API call (attempt {})", signal.totalRetries() + 1)
+                    logger.warn("[Discord-Bot] Retrying API call (attempt {})", signal.totalRetries() + 1)
                 ))
-            .doOnSuccess(v -> logger.info("Successfully sent Discord message via Bot API to channel: {}", channelId))
+            .doOnSuccess(v -> apiLogger.logOperation(SERVICE_NAME, "BOT_SEND_SUCCESS",
+                String.format("Message sent to channel %s", channelId)))
             .onErrorResume(error -> {
-                logger.error("Failed to send Discord message via Bot API: {}", error.getMessage());
+                logger.error("[Discord-Bot] Failed to send message: {}", error.getMessage());
                 return Mono.error(error);
             });
     }

@@ -4,6 +4,7 @@ import com.area.server.dto.GitHubApiResponse;
 import com.area.server.dto.GitHubIssue;
 import com.area.server.dto.GitHubPullRequest;
 import com.area.server.dto.GitHubRepositoryDTO;
+import com.area.server.logging.ExternalApiLogger;
 import com.area.server.model.GitHubActionConfig;
 import com.area.server.model.GitHubReactionConfig;
 import com.area.server.model.ServiceConnection;
@@ -12,7 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -34,21 +35,20 @@ import java.util.*;
 public class GitHubService {
 
     private static final Logger logger = LoggerFactory.getLogger(GitHubService.class);
+    private static final String SERVICE_NAME = "GitHub";
     private static final int MAX_RESULTS = 30;
     private static final int MAX_RETRIES = 3;
 
     private final WebClient githubClient;
     private final ObjectMapper objectMapper;
+    private final ExternalApiLogger apiLogger;
 
-    public GitHubService(@Value("${github.api.base:https://api.github.com}") String baseUrl,
-                         WebClient.Builder builder,
-                         ObjectMapper objectMapper) {
-        this.githubClient = builder
-            .baseUrl(baseUrl)
-            .defaultHeader("Accept", "application/vnd.github+json")
-            .defaultHeader("X-GitHub-Api-Version", "2022-11-28")
-            .build();
+    public GitHubService(@Qualifier("githubWebClient") WebClient githubClient,
+                         ObjectMapper objectMapper,
+                         ExternalApiLogger apiLogger) {
+        this.githubClient = githubClient;
         this.objectMapper = objectMapper;
+        this.apiLogger = apiLogger;
     }
 
     /**
@@ -60,7 +60,8 @@ public class GitHubService {
         String owner = config.getRepositoryOwner();
         String repo = config.getRepositoryName();
 
-        logger.debug("Fetching new issues from {}/{} (after: {})", owner, repo, afterIssueNumber);
+        apiLogger.logOperation(SERVICE_NAME, "FETCH_ISSUES",
+            String.format("Repository: %s/%s, After issue #%s", owner, repo, afterIssueNumber));
 
         return githubClient.get()
             .uri(uriBuilder -> uriBuilder
@@ -74,15 +75,23 @@ public class GitHubService {
             .accept(MediaType.APPLICATION_JSON)
             .retrieve()
             .bodyToFlux(JsonNode.class)
+            .doOnNext(node -> logger.debug("[GitHub] Received issue node: #{} - {}",
+                node.has("number") ? node.get("number").asText() : "?",
+                node.has("title") ? node.get("title").asText() : "?"))
             .filter(node -> !node.has("pull_request")) // Exclude PRs (they appear as issues too)
             .map(this::parseIssue)
             .filter(issue -> afterIssueNumber == null || issue.getNumber() > afterIssueNumber)
             .collectList()
-            .doOnSuccess(issues -> logger.debug("Fetched {} new issues", issues.size()))
+            .doOnSuccess(issues -> {
+                apiLogger.logOperation(SERVICE_NAME, "FETCH_ISSUES_COMPLETE",
+                    String.format("Found %d new issues in %s/%s", issues.size(), owner, repo));
+                issues.forEach(i -> logger.debug("[GitHub] Issue: #{} - {} by {}",
+                    i.getNumber(), i.getTitle(), i.getUser() != null ? i.getUser().getLogin() : "unknown"));
+            })
             .retryWhen(Retry.backoff(MAX_RETRIES, Duration.ofSeconds(2))
                 .filter(this::isRetriableError))
             .onErrorResume(error -> {
-                logger.error("Error fetching GitHub issues from {}/{}: {}",
+                logger.error("[GitHub] Error fetching issues from {}/{}: {}",
                            owner, repo, error.getMessage());
                 return Mono.just(Collections.emptyList());
             });
@@ -97,7 +106,8 @@ public class GitHubService {
         String owner = config.getRepositoryOwner();
         String repo = config.getRepositoryName();
 
-        logger.debug("Fetching new pull requests from {}/{} (after: {})", owner, repo, afterPrNumber);
+        apiLogger.logOperation(SERVICE_NAME, "FETCH_PRS",
+            String.format("Repository: %s/%s, After PR #%s", owner, repo, afterPrNumber));
 
         return githubClient.get()
             .uri(uriBuilder -> uriBuilder
@@ -111,14 +121,22 @@ public class GitHubService {
             .accept(MediaType.APPLICATION_JSON)
             .retrieve()
             .bodyToFlux(JsonNode.class)
+            .doOnNext(node -> logger.debug("[GitHub] Received PR node: #{} - {}",
+                node.has("number") ? node.get("number").asText() : "?",
+                node.has("title") ? node.get("title").asText() : "?"))
             .map(this::parsePullRequest)
             .filter(pr -> afterPrNumber == null || pr.getNumber() > afterPrNumber)
             .collectList()
-            .doOnSuccess(prs -> logger.debug("Fetched {} new pull requests", prs.size()))
+            .doOnSuccess(prs -> {
+                apiLogger.logOperation(SERVICE_NAME, "FETCH_PRS_COMPLETE",
+                    String.format("Found %d new PRs in %s/%s", prs.size(), owner, repo));
+                prs.forEach(pr -> logger.debug("[GitHub] PR: #{} - {} by {}",
+                    pr.getNumber(), pr.getTitle(), pr.getUser() != null ? pr.getUser().getLogin() : "unknown"));
+            })
             .retryWhen(Retry.backoff(MAX_RETRIES, Duration.ofSeconds(2))
                 .filter(this::isRetriableError))
             .onErrorResume(error -> {
-                logger.error("Error fetching GitHub pull requests from {}/{}: {}",
+                logger.error("[GitHub] Error fetching PRs from {}/{}: {}",
                            owner, repo, error.getMessage());
                 return Mono.just(Collections.emptyList());
             });
@@ -152,7 +170,10 @@ public class GitHubService {
             }
         }
 
-        logger.info("Creating issue in {}/{}: {}", owner, repo, title);
+        apiLogger.logOperation(SERVICE_NAME, "CREATE_ISSUE",
+            String.format("Creating issue in %s/%s: '%s'", owner, repo, title));
+        logger.debug("[GitHub] Issue body: {}", body.length() > 200 ? body.substring(0, 200) + "..." : body);
+        logger.debug("[GitHub] Request payload: {}", requestBody);
 
         return githubClient.post()
             .uri("/repos/{owner}/{repo}/issues", owner, repo)
@@ -161,13 +182,15 @@ public class GitHubService {
             .bodyValue(requestBody)
             .retrieve()
             .bodyToMono(GitHubApiResponse.CreateIssueResponse.class)
-            .doOnSuccess(response ->
-                logger.info("Successfully created issue #{} in {}/{}",
-                          response.getNumber(), owner, repo))
+            .doOnSuccess(response -> {
+                apiLogger.logOperation(SERVICE_NAME, "CREATE_ISSUE_SUCCESS",
+                    String.format("Created issue #%d in %s/%s: %s",
+                        response.getNumber(), owner, repo, response.getHtmlUrl()));
+            })
             .retryWhen(Retry.backoff(MAX_RETRIES, Duration.ofSeconds(2))
                 .filter(this::isRetriableError))
             .onErrorResume(error -> {
-                logger.error("Failed to create issue in {}/{}: {}", owner, repo, error.getMessage());
+                logger.error("[GitHub] Failed to create issue in {}/{}: {}", owner, repo, error.getMessage());
                 return Mono.error(error);
             });
     }
@@ -186,12 +209,15 @@ public class GitHubService {
         String sourceBranch = substituteVariables(config.getSourceBranch(), context);
         String targetBranch = config.getTargetBranch() != null ? config.getTargetBranch() : "main";
 
-        logger.info("Creating pull request in {}/{}: {} -> {}", owner, repo, sourceBranch, targetBranch);
+        apiLogger.logOperation(SERVICE_NAME, "CREATE_PR",
+            String.format("Creating PR in %s/%s: %s -> %s", owner, repo, sourceBranch, targetBranch));
 
         // Step 1: Get the SHA of the target branch
         return getRef(connection, owner, repo, targetBranch)
+            .doOnNext(sha -> logger.debug("[GitHub] Step 1: Got target branch SHA: {}", sha))
             .flatMap(targetSha -> {
                 // Step 2: Create a new branch from target
+                logger.debug("[GitHub] Step 2: Creating branch '{}'", sourceBranch);
                 return createBranch(connection, owner, repo, sourceBranch, targetSha);
             })
             .flatMap(branchSha -> {
@@ -203,6 +229,7 @@ public class GitHubService {
                     ? substituteVariables(config.getCommitMessage(), context)
                     : substituteVariables(config.getPrTitle(), context);
 
+                logger.debug("[GitHub] Step 3: Committing file '{}' with message: {}", filePath, commitMessage);
                 return commitFile(connection, owner, repo, sourceBranch, filePath, fileContent, commitMessage);
             })
             .flatMap(commitSha -> {
@@ -210,12 +237,16 @@ public class GitHubService {
                 String prTitle = substituteVariables(config.getPrTitle(), context);
                 String prBody = substituteVariables(config.getPrBody(), context);
 
+                logger.debug("[GitHub] Step 4: Creating PR with title: {}", prTitle);
                 return createPr(connection, owner, repo, prTitle, prBody, sourceBranch, targetBranch);
             })
-            .doOnSuccess(response ->
-                logger.info("Successfully created PR #{} in {}/{}", response.getNumber(), owner, repo))
+            .doOnSuccess(response -> {
+                apiLogger.logOperation(SERVICE_NAME, "CREATE_PR_SUCCESS",
+                    String.format("Created PR #%d in %s/%s: %s",
+                        response.getNumber(), owner, repo, response.getHtmlUrl()));
+            })
             .onErrorResume(error -> {
-                logger.error("Failed to create pull request in {}/{}: {}", owner, repo, error.getMessage());
+                logger.error("[GitHub] Failed to create PR in {}/{}: {}", owner, repo, error.getMessage());
                 return Mono.error(error);
             });
     }
