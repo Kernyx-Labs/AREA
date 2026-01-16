@@ -10,7 +10,8 @@ import java.util.Map;
  * to work with ReactionExecutor implementations.
  *
  * This allows reaction executors to get the specific configuration
- * for the action they're executing (e.g., Discord webhook URL, GitHub repo details).
+ * for the action they're executing (e.g., Discord webhook URL, GitHub repo
+ * details).
  */
 public class ActionWrapper extends Area {
 
@@ -53,7 +54,7 @@ public class ActionWrapper extends Area {
 
     @Override
     public DiscordReactionConfig getDiscordConfig() {
-        if (!"discord".equals(actionConfig.getService())) {
+        if (!"discord".equalsIgnoreCase(actionConfig.getService())) {
             return null;
         }
 
@@ -70,8 +71,21 @@ public class ActionWrapper extends Area {
         if (config.containsKey("channelName")) {
             discordConfig.setChannelName((String) config.get("channelName"));
         }
-        if (config.containsKey("message") || config.containsKey("messageTemplate")) {
-            String message = (String) (config.containsKey("message") ? config.get("message") : config.get("messageTemplate"));
+        if (config.containsKey("message") || config.containsKey("messageTemplate") ||
+                config.containsKey("body") || config.containsKey("content") || config.containsKey("message_template")) {
+
+            String message = null;
+            if (config.containsKey("message"))
+                message = (String) config.get("message");
+            else if (config.containsKey("messageTemplate"))
+                message = (String) config.get("messageTemplate");
+            else if (config.containsKey("message_template"))
+                message = (String) config.get("message_template");
+            else if (config.containsKey("body"))
+                message = (String) config.get("body");
+            else if (config.containsKey("content"))
+                message = (String) config.get("content");
+
             discordConfig.setMessageTemplate(message);
         }
 
@@ -85,7 +99,7 @@ public class ActionWrapper extends Area {
 
     @Override
     public GitHubReactionConfig getGithubReactionConfig() {
-        if (!"github".equals(actionConfig.getService())) {
+        if (!"github".equalsIgnoreCase(actionConfig.getService())) {
             return null;
         }
 
