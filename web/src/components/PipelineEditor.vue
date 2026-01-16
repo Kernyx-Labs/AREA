@@ -230,6 +230,31 @@ async function saveAsArea(workflowData) {
 }
 
 async function saveAsWorkflow(workflowData) {
+  // Inject connection IDs
+  try {
+    const connections = await api.getConnectedServices()
+    
+    // Inject for trigger
+    const triggerService = workflowData.trigger.service.toUpperCase()
+    const triggerConnection = connections.find(c => c.type === triggerService)
+    if (triggerConnection) {
+      workflowData.trigger.connectionId = triggerConnection.id
+    } else {
+       console.warn(`No connection found for trigger service ${triggerService}`)
+    }
+
+    // Inject for actions
+    for (const action of workflowData.actions) {
+      const actionService = action.service.toUpperCase()
+      const actionConnection = connections.find(c => c.type === actionService)
+      if (actionConnection) {
+        action.connectionId = actionConnection.id
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to inject connection IDs:', e)
+  }
+
   await api.createWorkflow(workflowData)
 }
 

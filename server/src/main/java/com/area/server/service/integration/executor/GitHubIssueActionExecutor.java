@@ -59,6 +59,11 @@ public class GitHubIssueActionExecutor implements ActionExecutor {
             return Mono.just(new TriggerContext());
         }
 
+        if (entity.getActionConnection() == null) {
+            logger.error("No GitHub connection found for entity {}", entity.getId());
+            return Mono.just(new TriggerContext());
+        }
+
         String lastProcessedId = getLastProcessedId(entity);
         Long afterIssueNumber = parseIssueNumber(lastProcessedId);
 

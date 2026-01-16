@@ -82,7 +82,7 @@ public class WorkflowWrapper implements AutomationEntity {
     @Override
     public GmailActionConfig getGmailConfig() {
         WorkflowData.TriggerConfig trigger = workflowData.getTrigger();
-        if (!"gmail".equals(trigger.getService())) {
+        if (!"gmail".equalsIgnoreCase(trigger.getService())) {
             return null;
         }
 
@@ -111,7 +111,7 @@ public class WorkflowWrapper implements AutomationEntity {
     @Override
     public GitHubActionConfig getGithubActionConfig() {
         WorkflowData.TriggerConfig trigger = workflowData.getTrigger();
-        if (!"github".equals(trigger.getService())) {
+        if (!"github".equalsIgnoreCase(trigger.getService())) {
             return null;
         }
 
@@ -121,7 +121,11 @@ public class WorkflowWrapper implements AutomationEntity {
         }
 
         GitHubActionConfig githubConfig = new GitHubActionConfig();
-        githubConfig.setActionType(trigger.getType());
+        String type = trigger.getType();
+        if (type != null && type.startsWith("github.")) {
+            type = type.substring(7);
+        }
+        githubConfig.setActionType(type);
 
         // [FIX] Support for combined repository field from JSON
         if (config.containsKey("repository")) {
