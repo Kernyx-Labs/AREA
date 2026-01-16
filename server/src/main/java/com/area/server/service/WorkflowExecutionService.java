@@ -1,11 +1,14 @@
 package com.area.server.service;
 
+import com.area.server.logging.ExternalApiLogger;
 import com.area.server.model.Area;
 import com.area.server.model.AreaExecutionLog;
 import com.area.server.model.Workflow;
 import com.area.server.repository.AreaExecutionLogRepository;
 import com.area.server.repository.AreaRepository;
 import com.area.server.repository.WorkflowRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,18 +28,24 @@ public class WorkflowExecutionService {
     private final AreaExecutionLogRepository executionLogRepository;
     private final GmailService gmailService;
     private final DiscordService discordService;
+    private final ExternalApiLogger apiLogger;
+    private final ObjectMapper objectMapper;
 
     public WorkflowExecutionService(
             AreaRepository areaRepository,
             WorkflowRepository workflowRepository,
             AreaExecutionLogRepository executionLogRepository,
             GmailService gmailService,
-            DiscordService discordService) {
+            DiscordService discordService,
+            ExternalApiLogger apiLogger,
+            ObjectMapper objectMapper) {
         this.areaRepository = areaRepository;
         this.workflowRepository = workflowRepository;
         this.executionLogRepository = executionLogRepository;
         this.gmailService = gmailService;
         this.discordService = discordService;
+        this.apiLogger = apiLogger;
+        this.objectMapper = objectMapper;
     }
 
     /**
@@ -119,35 +128,97 @@ public class WorkflowExecutionService {
 
     /**
      * Manually execute a workflow (for testing)
+     *
+     * NOTE: This method parses the workflow configuration and logs the actions
+     * that would be executed. Full execution requires ServiceConnections to be
+     * linked to the workflow (currently workflows store config as JSON only).
      */
     public void executeWorkflowManually(Workflow workflow) {
-        logger.info("Manually executing workflow: {} (ID: {})", workflow.getName(), workflow.getId());
+        apiLogger.logOperation("WorkflowExecution", "MANUAL_EXECUTE_START",
+            String.format("Workflow ID: %d, Name: '%s', Active: %s",
+                workflow.getId(), workflow.getName(), workflow.isActive()));
 
-        // Create a mock execution log for the workflow
-        AreaExecutionLog log = new AreaExecutionLog();
-        log.setExecutedAt(Instant.now());
+        logger.info("╔══════════════════════════════════════════════════════════════════════════════");
+        logger.info("║ MANUAL WORKFLOW EXECUTION - ID: {}", workflow.getId());
+        logger.info("╠══════════════════════════════════════════════════════════════════════════════");
+        logger.info("║ Name: {}", workflow.getName());
+        logger.info("║ Description: {}", workflow.getDescription());
+        logger.info("║ Active: {}", workflow.isActive());
 
         long startTime = System.currentTimeMillis();
 
         try {
-            // For now, just log the manual execution
-            // In the future, parse workflowData JSON and execute trigger/action
-            logger.info("Workflow '{}' executed manually - Active: {}", workflow.getName(), workflow.isActive());
+            // Parse and log the workflow configuration
+            if (workflow.getWorkflowData() != null && !workflow.getWorkflowData().isBlank()) {
+                Map<String, Object> workflowData = objectMapper.readValue(
+                    workflow.getWorkflowData(),
+                    new TypeReference<Map<String, Object>>() {}
+                );
 
-            log.setStatus(AreaExecutionLog.ExecutionStatus.SUCCESS);
-            log.setExecutionTimeMs(System.currentTimeMillis() - startTime);
-            log.setMessageSent("Manual execution triggered for workflow: " + workflow.getName());
+                // Log trigger configuration
+                if (workflowData.containsKey("trigger")) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> trigger = (Map<String, Object>) workflowData.get("trigger");
+                    logger.info("║ ");
+                    logger.info("║ TRIGGER:");
+                    logger.info("║   Service: {}", trigger.get("service"));
+                    logger.info("║   Type: {}", trigger.get("type"));
+                    if (trigger.containsKey("config")) {
+                        logger.info("║   Config: {}", trigger.get("config"));
+                    }
+                }
+
+                // Log actions configuration
+                if (workflowData.containsKey("actions")) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> actions = (List<Map<String, Object>>) workflowData.get("actions");
+                    logger.info("║ ");
+                    logger.info("║ ACTIONS ({} total):", actions.size());
+
+                    for (int i = 0; i < actions.size(); i++) {
+                        Map<String, Object> action = actions.get(i);
+                        String service = (String) action.get("service");
+                        String type = (String) action.get("type");
+                        String actionType = service + "." + type;
+
+                        logger.info("║   [{}] Service: {}, Type: {}", i + 1, service, type);
+                        logger.info("║       Action Type Key: {}", actionType);
+                        if (action.containsKey("config")) {
+                            logger.info("║       Config: {}", action.get("config"));
+                        }
+
+                        // Log what would happen
+                        apiLogger.logOperation("WorkflowExecution", "ACTION_" + (i + 1),
+                            String.format("Would execute: %s (Service: %s)", actionType, service));
+                    }
+                }
+
+                logger.info("║ ");
+                logger.info("║ ⚠️  NOTE: Workflow execution is currently simulation-only.");
+                logger.info("║     Full execution requires ServiceConnections to be linked.");
+                logger.info("║     Use Areas (with configured connections) for actual execution.");
+            } else {
+                logger.warn("║ No workflow data configured!");
+            }
+
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("╠══════════════════════════════════════════════════════════════════════════════");
+            logger.info("║ Execution completed in {} ms - Status: SUCCESS (simulated)", duration);
+            logger.info("╚══════════════════════════════════════════════════════════════════════════════");
+
+            apiLogger.logOperation("WorkflowExecution", "MANUAL_EXECUTE_COMPLETE",
+                String.format("Workflow %d completed (simulated) in %d ms", workflow.getId(), duration));
 
         } catch (Exception e) {
-            log.setStatus(AreaExecutionLog.ExecutionStatus.FAILURE);
-            log.setErrorMessage("Manual execution failed: " + e.getMessage());
-            log.setExecutionTimeMs(System.currentTimeMillis() - startTime);
+            long duration = System.currentTimeMillis() - startTime;
+            logger.error("╠══════════════════════════════════════════════════════════════════════════════");
+            logger.error("║ Execution FAILED in {} ms: {}", duration, e.getMessage());
+            logger.error("╚══════════════════════════════════════════════════════════════════════════════");
+
+            apiLogger.logOperation("WorkflowExecution", "MANUAL_EXECUTE_ERROR",
+                String.format("Workflow %d failed: %s", workflow.getId(), e.getMessage()));
+
             logger.error("Failed to manually execute workflow {}", workflow.getId(), e);
         }
-
-        // Only save log if we have an associated Area
-        // For pure workflows without Area, we skip logging for now
-        logger.info("Manual execution completed for workflow {} - Status: {}",
-                    workflow.getId(), log.getStatus());
     }
 }

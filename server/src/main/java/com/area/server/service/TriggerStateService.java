@@ -26,6 +26,16 @@ public class TriggerStateService {
 
     @Transactional
     public AreaTriggerState getOrCreateState(Area area) {
+        // Handle test areas (areas without IDs) - create in-memory state without persistence
+        if (area.getId() == null) {
+            logger.debug("Creating in-memory state for test area (no persistence)");
+            AreaTriggerState state = new AreaTriggerState();
+            state.setArea(area);
+            state.setLastUnreadCount(0);
+            state.setConsecutiveFailures(0);
+            return state;
+        }
+
         return stateRepository.findByAreaId(area.getId())
             .orElseGet(() -> {
                 AreaTriggerState state = new AreaTriggerState();
@@ -121,5 +131,23 @@ public class TriggerStateService {
         state.setLastErrorMessage(null);
         stateRepository.save(state);
         logger.info("Reset failure count for area {}", area.getId());
+    }
+
+    /**
+     * Update trigger state.
+     * Used by action executors to persist state changes.
+     * For test areas (areas without IDs), returns the state without persistence.
+     *
+     * @param state the state to update
+     * @return the updated state
+     */
+    @Transactional
+    public AreaTriggerState update(AreaTriggerState state) {
+        // Skip persistence for test areas
+        if (state.getArea() != null && state.getArea().getId() == null) {
+            logger.debug("Skipping state persistence for test area (no database ID)");
+            return state;
+        }
+        return stateRepository.save(state);
     }
 }

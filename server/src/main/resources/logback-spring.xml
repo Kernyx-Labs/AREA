@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <!-- Define log patterns -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"/>
+    <property name="LOG_PATTERN_COLORED" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight(%-5level) [%X{traceId:-}] %cyan(%logger{36}) - %msg%n"/>
+
+    <!-- Console Appender with colors for development -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN_COLORED}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- File Appender for persistent logs -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/area-server.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/area-server.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>50MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Separate file for external API calls (services) -->
+    <appender name="EXTERNAL_API_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/external-api.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/external-api.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>14</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Separate file for API responses (what is sent to frontend) -->
+    <appender name="API_RESPONSE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/api-responses.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/api-responses.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <timeBasedFileNamingAndTriggeringPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedFNATP">
+                <maxFileSize>100MB</maxFileSize>
+            </timeBasedFileNamingAndTriggeringPolicy>
+            <maxHistory>14</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+    </appender>
+
+    <!-- ==================== LOGGER CONFIGURATIONS ==================== -->
+
+    <!-- External API logging (Gmail, Discord, GitHub) -->
+    <logger name="com.area.server.logging.ExternalApiLogger" level="DEBUG" additivity="true">
+        <appender-ref ref="EXTERNAL_API_FILE"/>
+    </logger>
+
+    <!-- Service layer logging -->
+    <logger name="com.area.server.service.GmailService" level="DEBUG"/>
+    <logger name="com.area.server.service.DiscordService" level="DEBUG"/>
+    <logger name="com.area.server.service.GitHubService" level="DEBUG"/>
+
+    <!-- Controller response logging -->
+    <logger name="com.area.server.logging.ApiResponseLogger" level="DEBUG" additivity="true">
+        <appender-ref ref="API_RESPONSE_FILE"/>
+    </logger>
+
+    <!-- Controller layer logging -->
+    <logger name="com.area.server.controller" level="DEBUG"/>
+
+    <!-- Scheduler logging -->
+    <logger name="com.area.server.scheduler" level="DEBUG"/>
+
+    <!-- Spring WebFlux / WebClient logging (for debugging HTTP) -->
+    <logger name="reactor.netty.http.client" level="DEBUG"/>
+
+    <!-- Hibernate SQL logging (controlled via properties but can override here) -->
+    <logger name="org.hibernate.SQL" level="DEBUG"/>
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+
+    <!-- Reduce noise from chatty Spring internals -->
+    <logger name="org.springframework.web.servlet.mvc.method.annotation" level="WARN"/>
+    <logger name="org.springframework.security" level="INFO"/>
+    <logger name="org.apache.http" level="INFO"/>
+    <logger name="com.zaxxer.hikari" level="INFO"/>
+
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <!-- Profile-specific configurations -->
+    <springProfile name="dev">
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <root level="INFO">
+            <appender-ref ref="FILE"/>
+        </root>
+        <!-- Reduce verbose logging in production -->
+        <logger name="reactor.netty.http.client" level="WARN"/>
+        <logger name="org.hibernate.SQL" level="WARN"/>
+    </springProfile>
+
+</configuration>

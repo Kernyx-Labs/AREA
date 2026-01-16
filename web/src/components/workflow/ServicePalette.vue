@@ -237,7 +237,7 @@ function handleDragStart(event, service, eventData, eventType) {
     eventName: eventData.name,
     eventDescription: eventData.description,
     eventType: eventType, // 'trigger' or 'action'
-    eventId: eventData.name,
+    eventId: eventData.id,
     configFields: eventData.configFields || []
   }
 

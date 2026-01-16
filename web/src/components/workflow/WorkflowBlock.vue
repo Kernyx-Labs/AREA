@@ -94,22 +94,18 @@
             ></textarea>
 
             <!-- Select -->
-            <select
+            <Select
               v-else-if="field.type === 'select'"
               :id="`field-${field.name}`"
               v-model="localConfig[field.name]"
-              :required="field.required"
-              class="form-select"
-            >
-              <option value="" disabled>{{ field.placeholder || 'Select...' }}</option>
-              <option
-                v-for="option in field.options"
-                :key="option.value"
-                :value="option.value"
-              >
-                {{ option.label }}
-              </option>
-            </select>
+              :placeholder="field.placeholder || 'Select...'"
+              :options="field.options"
+              :dynamic-options-endpoint="field.metadata?.dynamicOptionsEndpoint"
+              :options-value-field="field.metadata?.optionsValueField"
+              :options-label-field="field.metadata?.optionsLabelField"
+              :searchable="field.metadata?.searchable"
+              :disabled="false"
+            />
 
             <small v-if="field.hint" class="form-hint">{{ field.hint }}</small>
           </div>
@@ -147,6 +143,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { XIcon, MinimizeIcon } from 'lucide-vue-next'
+import Select from '@/components/ui/Select.vue'
 
 const props = defineProps({
   // Service info

@@ -57,4 +57,17 @@ public class CustomUserDetailsService implements UserDetailsService {
         return userRepository.findByEmail(email)
             .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
     }
+
+    /**
+     * Load user entity by ID.
+     * Used by OAuth flows to retrieve user after state validation.
+     *
+     * @param userId the user's ID
+     * @return User entity
+     * @throws UsernameNotFoundException if user not found
+     */
+    public User loadUserEntityById(Long userId) throws UsernameNotFoundException {
+        return userRepository.findById(userId)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found with ID: " + userId));
+    }
 }

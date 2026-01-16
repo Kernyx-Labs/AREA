@@ -67,21 +67,37 @@ public class WorkflowController {
 
     /**
      * Create a new workflow
+     * Supports both single action and array of actions for flexibility
      * Uses GlobalExceptionHandler for error handling - no try-catch needed
      */
     @PostMapping
     public ResponseEntity<ApiResponse<Map<String, Object>>> createWorkflow(@Valid @RequestBody CreateWorkflowRequest request) {
+        // Validate that at least one action is provided
+        if (request.getAction() == null && (request.getActions() == null || request.getActions().isEmpty())) {
+            throw new IllegalArgumentException("At least one action is required");
+        }
+
         Workflow workflow = new Workflow();
         workflow.setName(request.getName());
-        workflow.setDescription("Trigger: " + request.getTrigger().getService() + " → Action: " + request.getAction().getService());
+
+        // Build description based on available actions
+        String actionDescription = buildActionDescription(request);
+        workflow.setDescription("Trigger: " + request.getTrigger().getService() + " → Actions: " + actionDescription);
         workflow.setActive(true); // Start active by default
 
-        // Store the workflow data as JSON
+        // Store the workflow data as JSON, supporting both single action and array of actions
         try {
-            Map<String, Object> workflowData = Map.of(
-                    "trigger", request.getTrigger(),
-                    "action", request.getAction()
-            );
+            Map<String, Object> workflowData = new java.util.HashMap<>();
+            workflowData.put("trigger", request.getTrigger());
+
+            // Handle both singular action and actions array
+            if (request.getActions() != null && !request.getActions().isEmpty()) {
+                workflowData.put("actions", request.getActions());
+            } else if (request.getAction() != null) {
+                // Convert single action to array format for consistency
+                workflowData.put("actions", java.util.List.of(request.getAction()));
+            }
+
             String workflowDataJson = objectMapper.writeValueAsString(workflowData);
             workflow.setWorkflowData(workflowDataJson);
         } catch (Exception e) {
@@ -90,9 +106,27 @@ public class WorkflowController {
 
         Workflow saved = workflowRepository.save(workflow);
 
-        logger.info("Created and activated workflow: {}", saved.getId());
+        logger.info("Created and activated workflow: {} with trigger: {} and {} action(s)",
+                saved.getId(),
+                request.getTrigger().getService(),
+                request.getActions() != null ? request.getActions().size() : 1);
 
         return ResponseEntity.ok(ApiResponse.success("Workflow created successfully", mapToResponse(saved)));
+    }
+
+    /**
+     * Build a description of the actions for the workflow
+     */
+    private String buildActionDescription(CreateWorkflowRequest request) {
+        if (request.getActions() != null && !request.getActions().isEmpty()) {
+            return request.getActions().stream()
+                    .map(CreateWorkflowRequest.ActionConfig::getService)
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("Unknown");
+        } else if (request.getAction() != null) {
+            return request.getAction().getService();
+        }
+        return "Unknown";
     }
 
     /**

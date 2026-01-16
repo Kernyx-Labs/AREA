@@ -2,11 +2,12 @@ package com.area.server.service;
 
 import com.area.server.dto.GmailApiResponse;
 import com.area.server.dto.GmailMessage;
+import com.area.server.logging.ExternalApiLogger;
 import com.area.server.model.GmailActionConfig;
 import com.area.server.model.ServiceConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -20,12 +21,15 @@ import java.util.List;
 public class GmailService {
 
     private static final Logger logger = LoggerFactory.getLogger(GmailService.class);
+    private static final String SERVICE_NAME = "Gmail";
 
     private final WebClient gmailClient;
+    private final ExternalApiLogger apiLogger;
 
-    public GmailService(@Value("${google.api.base:https://www.googleapis.com}") String baseUrl,
-                        WebClient.Builder builder) {
-        this.gmailClient = builder.baseUrl(baseUrl).build();
+    public GmailService(@Qualifier("gmailWebClient") WebClient gmailClient,
+                        ExternalApiLogger apiLogger) {
+        this.gmailClient = gmailClient;
+        this.apiLogger = apiLogger;
     }
 
     public Mono<List<GmailMessage>> fetchNewMessages(ServiceConnection connection,
@@ -33,7 +37,9 @@ public class GmailService {
                                                       String afterMessageId) {
         String query = buildQuery(config);
 
-        logger.debug("Fetching new Gmail messages with query: {} (after: {})", query, afterMessageId);
+        apiLogger.logOperation(SERVICE_NAME, "FETCH_MESSAGES",
+            String.format("Query: '%s', After: %s, Connection: %d",
+                query, afterMessageId, connection.getId()));
 
         return gmailClient.get()
             .uri(uriBuilder -> uriBuilder
@@ -46,9 +52,14 @@ public class GmailService {
             .accept(MediaType.APPLICATION_JSON)
             .retrieve()
             .bodyToMono(GmailApiResponse.MessageListResponse.class)
+            .doOnNext(response -> {
+                int count = response.getMessages() != null ? response.getMessages().size() : 0;
+                logger.debug("[Gmail] Message list response: {} messages found", count);
+            })
             .flatMapMany(response -> {
                 List<GmailApiResponse.MessageRef> messages = response.getMessages();
                 if (messages == null || messages.isEmpty()) {
+                    logger.debug("[Gmail] No messages in response");
                     return Flux.empty();
                 }
                 return Flux.fromIterable(messages);
@@ -56,23 +67,35 @@ public class GmailService {
             .filter(msg -> afterMessageId == null || msg.getId().compareTo(afterMessageId) > 0)
             .flatMap(msg -> fetchMessageDetails(connection, msg.getId()))
             .collectList()
-            .doOnSuccess(messages -> logger.debug("Fetched {} new messages", messages.size()))
+            .doOnSuccess(messages -> {
+                apiLogger.logOperation(SERVICE_NAME, "FETCH_COMPLETE",
+                    String.format("Retrieved %d new messages", messages.size()));
+                if (!messages.isEmpty()) {
+                    messages.forEach(m -> logger.debug("[Gmail] Message: id={}, from={}, subject={}",
+                        m.getId(), m.getFrom(), m.getSubject()));
+                }
+            })
             .onErrorResume(error -> {
-                logger.error("Error fetching Gmail messages: {}", error.getMessage());
+                logger.error("[Gmail] Error fetching messages: {}", error.getMessage());
                 return Mono.error(error);
             });
     }
 
     public Mono<GmailMessage> fetchMessageDetails(ServiceConnection connection, String messageId) {
+        logger.debug("[Gmail] Fetching message details for id={}", messageId);
+
         return gmailClient.get()
             .uri("/gmail/v1/users/me/messages/" + messageId)
             .headers(headers -> headers.setBearerAuth(connection.getAccessToken()))
             .accept(MediaType.APPLICATION_JSON)
             .retrieve()
             .bodyToMono(GmailApiResponse.MessageDetail.class)
+            .doOnNext(detail -> logger.debug("[Gmail] Received message detail: threadId={}, snippet={}",
+                detail.getThreadId(),
+                detail.getSnippet() != null ? detail.getSnippet().substring(0, Math.min(50, detail.getSnippet().length())) + "..." : "null"))
             .map(this::parseMessage)
             .onErrorResume(error -> {
-                logger.error("Error fetching message details for {}: {}", messageId, error.getMessage());
+                logger.error("[Gmail] Error fetching message details for {}: {}", messageId, error.getMessage());
                 return Mono.error(error);
             });
     }
