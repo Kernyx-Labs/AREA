@@ -46,7 +46,7 @@ public class GitHubPullRequestActionExecutor implements ActionExecutor {
     @Override
     public Mono<Boolean> isTriggered(AutomationEntity entity) {
         return getTriggerContext(entity)
-                .map(context -> context.has("newPullRequests") &&
+                .map(context -> context.has("newPRs") &&
                         context.getInteger("prCount") != null &&
                         context.getInteger("prCount") > 0);
     }
@@ -68,7 +68,7 @@ public class GitHubPullRequestActionExecutor implements ActionExecutor {
                 afterPrNumber)
                 .map(newPullRequests -> {
                     TriggerContext context = new TriggerContext();
-                    context.put("newPullRequests", newPullRequests);
+                    context.put("newPRs", newPullRequests);
                     context.put("prCount", newPullRequests.size());
 
                     if (!newPullRequests.isEmpty()) {
