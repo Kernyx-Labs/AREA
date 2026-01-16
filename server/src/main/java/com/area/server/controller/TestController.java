@@ -87,32 +87,32 @@ public class TestController {
         ActionExecutor executor = actionExecutorRegistry.getExecutor("gmail.email_received");
 
         return executor.getTriggerContext(testArea)
-            .flatMap(context -> {
-                Integer messageCount = context.getInteger("messageCount");
-                boolean triggered = messageCount != null && messageCount > 0;
+                .flatMap(context -> {
+                    Integer messageCount = context.getInteger("messageCount");
+                    boolean triggered = messageCount != null && messageCount > 0;
 
-                String message = triggered
-                    ? String.format("Trigger would fire! Found %d new email(s) matching your filters.", messageCount)
-                    : "Trigger would not fire. No new emails found matching your filters.";
+                    String message = triggered
+                            ? String.format("Trigger would fire! Found %d new email(s) matching your filters.",
+                                    messageCount)
+                            : "Trigger would not fire. No new emails found matching your filters.";
 
-                // Remove complex objects for clean JSON response
-                Map<String, Object> cleanContext = new HashMap<>(context.getData());
-                cleanContext.remove("newMessages");  // Remove full message list
-                cleanContext.remove("latestMessage"); // Remove full message object
+                    // Remove complex objects for clean JSON response
+                    Map<String, Object> cleanContext = new HashMap<>(context.getData());
+                    cleanContext.remove("newMessages"); // Remove full message list
+                    cleanContext.remove("latestMessage"); // Remove full message object
 
-                TestTriggerResponse response = new TestTriggerResponse(
-                    triggered, message, cleanContext, messageCount
-                );
+                    TestTriggerResponse response = new TestTriggerResponse(
+                            triggered, message, cleanContext, messageCount);
 
-                return Mono.just(ResponseEntity.ok(ApiResponse.success("Gmail trigger tested successfully", response)));
-            })
-            .onErrorResume(error -> {
-                logger.error("Error testing Gmail trigger: {}", error.getMessage());
-                return Mono.just(ResponseEntity.ok(
-                    ApiResponse.error("Failed to test Gmail trigger", error.getMessage())
-                ));
-            })
-            .block();
+                    return Mono.just(
+                            ResponseEntity.ok(ApiResponse.success("Gmail trigger tested successfully", response)));
+                })
+                .onErrorResume(error -> {
+                    logger.error("Error testing Gmail trigger: {}", error.getMessage());
+                    return Mono.just(ResponseEntity.ok(
+                            ApiResponse.error("Failed to test Gmail trigger", error.getMessage())));
+                })
+                .block();
     }
 
     /**
@@ -154,34 +154,33 @@ public class TestController {
         ActionExecutor executor = actionExecutorRegistry.getExecutor("github.issue_created");
 
         return executor.getTriggerContext(testArea)
-            .flatMap(context -> {
-                Integer issueCount = context.getInteger("issueCount");
-                boolean triggered = issueCount != null && issueCount > 0;
+                .flatMap(context -> {
+                    Integer issueCount = context.getInteger("issueCount");
+                    boolean triggered = issueCount != null && issueCount > 0;
 
-                String message = triggered
-                    ? String.format("Trigger would fire! Found %d new issue(s) in repository %s.",
-                        issueCount, request.getGithubRepository())
-                    : String.format("Trigger would not fire. No new issues found in repository %s.",
-                        request.getGithubRepository());
+                    String message = triggered
+                            ? String.format("Trigger would fire! Found %d new issue(s) in repository %s.",
+                                    issueCount, request.getGithubRepository())
+                            : String.format("Trigger would not fire. No new issues found in repository %s.",
+                                    request.getGithubRepository());
 
-                // Remove complex objects for clean JSON response
-                Map<String, Object> cleanContext = new HashMap<>(context.getData());
-                cleanContext.remove("newIssues");
-                cleanContext.remove("latestIssue");
+                    // Remove complex objects for clean JSON response
+                    Map<String, Object> cleanContext = new HashMap<>(context.getData());
+                    cleanContext.remove("newIssues");
+                    cleanContext.remove("latestIssue");
 
-                TestTriggerResponse response = new TestTriggerResponse(
-                    triggered, message, cleanContext, issueCount
-                );
+                    TestTriggerResponse response = new TestTriggerResponse(
+                            triggered, message, cleanContext, issueCount);
 
-                return Mono.just(ResponseEntity.ok(ApiResponse.success("GitHub issue trigger tested successfully", response)));
-            })
-            .onErrorResume(error -> {
-                logger.error("Error testing GitHub issue trigger: {}", error.getMessage());
-                return Mono.just(ResponseEntity.ok(
-                    ApiResponse.error("Failed to test GitHub issue trigger", error.getMessage())
-                ));
-            })
-            .block();
+                    return Mono.just(ResponseEntity
+                            .ok(ApiResponse.success("GitHub issue trigger tested successfully", response)));
+                })
+                .onErrorResume(error -> {
+                    logger.error("Error testing GitHub issue trigger: {}", error.getMessage());
+                    return Mono.just(ResponseEntity.ok(
+                            ApiResponse.error("Failed to test GitHub issue trigger", error.getMessage())));
+                })
+                .block();
     }
 
     /**
@@ -223,50 +222,49 @@ public class TestController {
         ActionExecutor executor = actionExecutorRegistry.getExecutor("github.pr_created");
 
         return executor.getTriggerContext(testArea)
-            .flatMap(context -> {
-                Integer prCount = context.getInteger("prCount");
-                boolean triggered = prCount != null && prCount > 0;
+                .flatMap(context -> {
+                    Integer prCount = context.getInteger("prCount");
+                    boolean triggered = prCount != null && prCount > 0;
 
-                String message = triggered
-                    ? String.format("Trigger would fire! Found %d new pull request(s) in repository %s.",
-                        prCount, request.getGithubRepository())
-                    : String.format("Trigger would not fire. No new pull requests found in repository %s.",
-                        request.getGithubRepository());
+                    String message = triggered
+                            ? String.format("Trigger would fire! Found %d new pull request(s) in repository %s.",
+                                    prCount, request.getGithubRepository())
+                            : String.format("Trigger would not fire. No new pull requests found in repository %s.",
+                                    request.getGithubRepository());
 
-                // Remove complex objects for clean JSON response
-                Map<String, Object> cleanContext = new HashMap<>(context.getData());
-                cleanContext.remove("newPullRequests");
-                cleanContext.remove("latestPullRequest");
+                    // Remove complex objects for clean JSON response
+                    Map<String, Object> cleanContext = new HashMap<>(context.getData());
+                    cleanContext.remove("newPullRequests");
+                    cleanContext.remove("latestPullRequest");
 
-                TestTriggerResponse response = new TestTriggerResponse(
-                    triggered, message, cleanContext, prCount
-                );
+                    TestTriggerResponse response = new TestTriggerResponse(
+                            triggered, message, cleanContext, prCount);
 
-                return Mono.just(ResponseEntity.ok(ApiResponse.success("GitHub PR trigger tested successfully", response)));
-            })
-            .onErrorResume(error -> {
-                logger.error("Error testing GitHub PR trigger: {}", error.getMessage());
-                return Mono.just(ResponseEntity.ok(
-                    ApiResponse.error("Failed to test GitHub PR trigger", error.getMessage())
-                ));
-            })
-            .block();
+                    return Mono.just(
+                            ResponseEntity.ok(ApiResponse.success("GitHub PR trigger tested successfully", response)));
+                })
+                .onErrorResume(error -> {
+                    logger.error("Error testing GitHub PR trigger: {}", error.getMessage());
+                    return Mono.just(ResponseEntity.ok(
+                            ApiResponse.error("Failed to test GitHub PR trigger", error.getMessage())));
+                })
+                .block();
     }
 
     /**
-     * Test Discord send_webhook reaction.
+     * Test Discord send_message reaction.
      * Actually sends a message to Discord using the provided configuration.
      *
-     * POST /api/test/reaction/discord/send_webhook
+     * POST /api/test/reaction/discord/send_message
      *
      * @param request test configuration with message template
      * @return reaction test result
      */
-    @PostMapping("/reaction/discord/send_webhook")
+    @PostMapping("/reaction/discord/send_message")
     public ResponseEntity<ApiResponse<TestReactionResponse>> testDiscordReaction(
             @Valid @RequestBody TestReactionRequest request) {
 
-        logger.info("Testing Discord send_webhook reaction");
+        logger.info("Testing Discord send_message reaction");
 
         User user = getCurrentUser();
         ServiceConnection connection = validateAndGetConnection(request.getServiceConnectionId(), user);
@@ -293,37 +291,35 @@ public class TestController {
 
         // Create mock context
         TriggerContext context = new TriggerContext(
-            request.getMockContextData() != null
-                ? request.getMockContextData()
-                : createDefaultMockContext()
-        );
+                request.getMockContextData() != null
+                        ? request.getMockContextData()
+                        : createDefaultMockContext());
 
         // Get the executor and execute reaction
-        ReactionExecutor executor = reactionExecutorRegistry.getExecutor("discord.send_webhook");
+        ReactionExecutor executor = reactionExecutorRegistry.getExecutor("discord.send_message");
 
         return executor.execute(testArea, context)
-            .then(Mono.fromCallable(() -> {
-                Map<String, Object> resultData = new HashMap<>();
-                resultData.put("channelId", request.getDiscordChannelId());
+                .then(Mono.fromCallable(() -> {
+                    Map<String, Object> resultData = new HashMap<>();
+                    resultData.put("channelId", request.getDiscordChannelId());
 
-                TestReactionResponse response = new TestReactionResponse(
-                    true,
-                    "Discord message sent successfully!",
-                    resultData
-                );
+                    TestReactionResponse response = new TestReactionResponse(
+                            true,
+                            "Discord message sent successfully!",
+                            resultData);
 
-                return ResponseEntity.ok(ApiResponse.success("Discord reaction tested successfully", response));
-            }))
-            .onErrorResume(error -> {
-                logger.error("Error testing Discord reaction: {}", error.getMessage());
-                TestReactionResponse response = new TestReactionResponse(
-                    false,
-                    "Failed to send Discord message: " + error.getMessage(),
-                    null
-                );
-                return Mono.just(ResponseEntity.ok(ApiResponse.success("Discord reaction test completed with errors", response)));
-            })
-            .block();
+                    return ResponseEntity.ok(ApiResponse.success("Discord reaction tested successfully", response));
+                }))
+                .onErrorResume(error -> {
+                    logger.error("Error testing Discord reaction: {}", error.getMessage());
+                    TestReactionResponse response = new TestReactionResponse(
+                            false,
+                            "Failed to send Discord message: " + error.getMessage(),
+                            null);
+                    return Mono.just(ResponseEntity
+                            .ok(ApiResponse.success("Discord reaction test completed with errors", response)));
+                })
+                .block();
     }
 
     /**
@@ -370,38 +366,38 @@ public class TestController {
 
         // Create mock context
         TriggerContext context = new TriggerContext(
-            request.getMockContextData() != null
-                ? request.getMockContextData()
-                : createDefaultMockContext()
-        );
+                request.getMockContextData() != null
+                        ? request.getMockContextData()
+                        : createDefaultMockContext());
 
         // Get the executor and execute reaction
         ReactionExecutor executor = reactionExecutorRegistry.getExecutor("github.create_issue");
 
         return executor.execute(testArea, context)
-            .then(Mono.fromCallable(() -> {
-                Map<String, Object> resultData = new HashMap<>();
-                resultData.put("repository", request.getGithubRepository());
-                resultData.put("title", request.getGithubIssueTitle());
+                .then(Mono.fromCallable(() -> {
+                    Map<String, Object> resultData = new HashMap<>();
+                    resultData.put("repository", request.getGithubRepository());
+                    resultData.put("title", request.getGithubIssueTitle());
 
-                TestReactionResponse response = new TestReactionResponse(
-                    true,
-                    String.format("GitHub issue created successfully in repository %s!", request.getGithubRepository()),
-                    resultData
-                );
+                    TestReactionResponse response = new TestReactionResponse(
+                            true,
+                            String.format("GitHub issue created successfully in repository %s!",
+                                    request.getGithubRepository()),
+                            resultData);
 
-                return ResponseEntity.ok(ApiResponse.success("GitHub create_issue reaction tested successfully", response));
-            }))
-            .onErrorResume(error -> {
-                logger.error("Error testing GitHub create_issue reaction: {}", error.getMessage());
-                TestReactionResponse response = new TestReactionResponse(
-                    false,
-                    "Failed to create GitHub issue: " + error.getMessage(),
-                    null
-                );
-                return Mono.just(ResponseEntity.ok(ApiResponse.success("GitHub create_issue reaction test completed with errors", response)));
-            })
-            .block();
+                    return ResponseEntity
+                            .ok(ApiResponse.success("GitHub create_issue reaction tested successfully", response));
+                }))
+                .onErrorResume(error -> {
+                    logger.error("Error testing GitHub create_issue reaction: {}", error.getMessage());
+                    TestReactionResponse response = new TestReactionResponse(
+                            false,
+                            "Failed to create GitHub issue: " + error.getMessage(),
+                            null);
+                    return Mono.just(ResponseEntity.ok(
+                            ApiResponse.success("GitHub create_issue reaction test completed with errors", response)));
+                })
+                .block();
     }
 
     /**
@@ -452,7 +448,8 @@ public class TestController {
         githubConfig.setPrTitle(request.getGithubPrTitle());
         githubConfig.setPrBody(request.getGithubPrBody());
         githubConfig.setSourceBranch(request.getGithubSourceBranch());
-        githubConfig.setTargetBranch(request.getGithubTargetBranch() != null ? request.getGithubTargetBranch() : "main");
+        githubConfig
+                .setTargetBranch(request.getGithubTargetBranch() != null ? request.getGithubTargetBranch() : "main");
         githubConfig.setCommitMessage(request.getGithubCommitMessage());
         githubConfig.setFilePath(request.getGithubFilePath());
         githubConfig.setFileContent(request.getGithubFileContent());
@@ -460,40 +457,40 @@ public class TestController {
 
         // Create mock context
         TriggerContext context = new TriggerContext(
-            request.getMockContextData() != null
-                ? request.getMockContextData()
-                : createDefaultMockContext()
-        );
+                request.getMockContextData() != null
+                        ? request.getMockContextData()
+                        : createDefaultMockContext());
 
         // Get the executor and execute reaction
         ReactionExecutor executor = reactionExecutorRegistry.getExecutor("github.create_pr");
 
         return executor.execute(testArea, context)
-            .then(Mono.fromCallable(() -> {
-                Map<String, Object> resultData = new HashMap<>();
-                resultData.put("repository", request.getGithubRepository());
-                resultData.put("title", request.getGithubPrTitle());
-                resultData.put("sourceBranch", request.getGithubSourceBranch());
-                resultData.put("targetBranch", githubConfig.getTargetBranch());
+                .then(Mono.fromCallable(() -> {
+                    Map<String, Object> resultData = new HashMap<>();
+                    resultData.put("repository", request.getGithubRepository());
+                    resultData.put("title", request.getGithubPrTitle());
+                    resultData.put("sourceBranch", request.getGithubSourceBranch());
+                    resultData.put("targetBranch", githubConfig.getTargetBranch());
 
-                TestReactionResponse response = new TestReactionResponse(
-                    true,
-                    String.format("GitHub pull request created successfully in repository %s!", request.getGithubRepository()),
-                    resultData
-                );
+                    TestReactionResponse response = new TestReactionResponse(
+                            true,
+                            String.format("GitHub pull request created successfully in repository %s!",
+                                    request.getGithubRepository()),
+                            resultData);
 
-                return ResponseEntity.ok(ApiResponse.success("GitHub create_pr reaction tested successfully", response));
-            }))
-            .onErrorResume(error -> {
-                logger.error("Error testing GitHub create_pr reaction: {}", error.getMessage());
-                TestReactionResponse response = new TestReactionResponse(
-                    false,
-                    "Failed to create GitHub pull request: " + error.getMessage(),
-                    null
-                );
-                return Mono.just(ResponseEntity.ok(ApiResponse.success("GitHub create_pr reaction test completed with errors", response)));
-            })
-            .block();
+                    return ResponseEntity
+                            .ok(ApiResponse.success("GitHub create_pr reaction tested successfully", response));
+                }))
+                .onErrorResume(error -> {
+                    logger.error("Error testing GitHub create_pr reaction: {}", error.getMessage());
+                    TestReactionResponse response = new TestReactionResponse(
+                            false,
+                            "Failed to create GitHub pull request: " + error.getMessage(),
+                            null);
+                    return Mono.just(ResponseEntity
+                            .ok(ApiResponse.success("GitHub create_pr reaction test completed with errors", response)));
+                })
+                .block();
     }
 
     // Helper methods
@@ -512,7 +509,7 @@ public class TestController {
      */
     private ServiceConnection validateAndGetConnection(Long connectionId, User user) {
         ServiceConnection connection = serviceConnectionRepository.findById(connectionId)
-            .orElseThrow(() -> new IllegalArgumentException("Service connection not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Service connection not found"));
 
         if (!connection.getUser().getId().equals(user.getId())) {
             throw new IllegalArgumentException("Service connection does not belong to the current user");
@@ -532,7 +529,8 @@ public class TestController {
     }
 
     /**
-     * Create a temporary Area object for testing (with both action and reaction connections)
+     * Create a temporary Area object for testing (with both action and reaction
+     * connections)
      */
     private Area createTestArea(User user, ServiceConnection actionConnection, ServiceConnection reactionConnection) {
         Area area = new Area();

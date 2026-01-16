@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Executor for Discord "send_webhook" reaction.
+ * Executor for Discord "send_message" reaction.
  * Sends messages to Discord channels via Discord Bot API using bot token.
  */
 @Component
@@ -33,7 +33,7 @@ public class DiscordReactionExecutor implements ReactionExecutor {
 
     @Override
     public String getReactionType() {
-        return "discord.send_webhook";
+        return "discord.send_message";
     }
 
     @Override
