@@ -3,6 +3,8 @@ package com.area.server.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "workflows")
@@ -45,6 +47,12 @@ public class Workflow {
     // Workflow configuration stored as JSON
     @Column(columnDefinition = "TEXT")
     private String workflowData; // JSON: { trigger, actions, reactions, connections }
+
+    @OneToMany(mappedBy = "workflow", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private List<WorkflowExecutionLog> executionLogs = new ArrayList<>();
+
+    @OneToOne(mappedBy = "workflow", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private WorkflowTriggerState triggerState;
 
     public Long getId() {
         return id;

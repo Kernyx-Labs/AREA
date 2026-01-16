@@ -68,6 +68,7 @@
               :placeholder="field.placeholder || ''"
               :required="field.required"
               class="form-input"
+              @focus="handleInputFocus(field.name)"
             />
 
             <!-- Number Input -->
@@ -79,6 +80,7 @@
               :placeholder="field.placeholder || ''"
               :required="field.required"
               class="form-input"
+              @focus="handleInputFocus(field.name)"
             />
 
             <!-- Textarea -->
@@ -90,7 +92,7 @@
               :required="field.required"
               :rows="field.rows || 5"
               class="form-textarea"
-              @focus="handleTextareaFocus(field.name)"
+              @focus="handleInputFocus(field.name)"
             ></textarea>
 
             <!-- Select -->
@@ -122,6 +124,7 @@
               v-for="varName in availableVariables"
               :key="varName"
               class="var-tag"
+              @mousedown.prevent
               @click="insertVariable(varName)"
               :title="`Click to insert {${varName}} into your message`"
               v-text="`{${varName}}`"
@@ -236,15 +239,25 @@ function handleCancel() {
   emit('cancel')
 }
 
-const lastFocusedTextarea = ref(null)
+const lastFocusedField = ref(null)
 
-function handleTextareaFocus(fieldName) {
-  lastFocusedTextarea.value = fieldName
+function handleInputFocus(fieldName) {
+  lastFocusedField.value = fieldName
 }
 
 function insertVariable(varName) {
-  // Find the last focused textarea or input in the form
-  const form = document.activeElement
+  let form = document.activeElement
+
+  // If active element is not a relevant input, try to find the last focused one
+  if (!form || (form.tagName !== 'TEXTAREA' && form.tagName !== 'INPUT')) {
+    if (lastFocusedField.value) {
+      const el = document.getElementById(`field-${lastFocusedField.value}`)
+      if (el) {
+        form = el
+      }
+    }
+  }
+
   if (form && (form.tagName === 'TEXTAREA' || form.tagName === 'INPUT')) {
     const start = form.selectionStart
     const end = form.selectionEnd
@@ -258,8 +271,11 @@ function insertVariable(varName) {
     localConfig.value[fieldName] = form.value
 
     // Set cursor position after the inserted variable
-    form.selectionStart = form.selectionEnd = start + variable.length
     form.focus()
+    // Small timeout to ensure focus and cursor position update
+    setTimeout(() => {
+      form.selectionStart = form.selectionEnd = start + variable.length
+    }, 0)
   }
 }
 </script>

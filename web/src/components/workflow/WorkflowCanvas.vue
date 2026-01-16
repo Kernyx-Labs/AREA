@@ -121,7 +121,7 @@
 
           <!-- Add Action Drop Zone -->
           <div
-            v-if="trigger"
+            v-if="trigger && actions.length === 0"
             class="add-action-zone"
             :class="{
               'drop-zone--active': isDragOverAction,
@@ -281,6 +281,8 @@ function saveTriggerConfig(config) {
 }
 
 function addAction(data) {
+  if (actions.value.length >= 1) return
+
   const newAction = {
     ...data,
     config: {},
