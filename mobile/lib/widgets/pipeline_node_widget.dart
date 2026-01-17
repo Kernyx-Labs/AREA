@@ -15,12 +15,14 @@ class PipelineNodeWidget extends StatelessWidget {
     required this.onDelete,
     required this.onConnectorTap,
     required this.canvasOffset,
+    this.onDoubleTap,
   });
 
   final PipelineNode node;
   final bool isSelected;
   final bool isConnectingFrom;
   final VoidCallback onTap;
+  final VoidCallback? onDoubleTap;
   final ValueChanged<Offset> onPanUpdate;
   final VoidCallback onDelete;
   final VoidCallback onConnectorTap;
@@ -34,6 +36,7 @@ class PipelineNodeWidget extends StatelessWidget {
       top: node.position.dy + canvasOffset.dy,
       child: GestureDetector(
         onTap: onTap,
+        onDoubleTap: onDoubleTap,
         onPanUpdate: (details) => onPanUpdate(details.delta),
         child: SizedBox(
           width: PipelineLayout.nodeWidth,
