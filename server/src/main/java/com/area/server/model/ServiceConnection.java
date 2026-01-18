@@ -10,7 +10,8 @@ public class ServiceConnection {
     public enum ServiceType {
         GMAIL,
         DISCORD,
-        GITHUB
+        GITHUB,
+        TIMER
     }
 
     @Id

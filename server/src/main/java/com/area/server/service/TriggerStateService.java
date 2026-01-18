@@ -90,6 +90,18 @@ public class TriggerStateService {
     }
 
     @Transactional
+    public void updateStateAfterTimerSuccess(Area area) {
+        AreaTriggerState state = getOrCreateState(area);
+        state.setLastCheckedAt(Instant.now());
+        state.setLastTriggeredAt(Instant.now());
+        state.setConsecutiveFailures(0);
+        state.setLastErrorMessage(null);
+        stateRepository.save(state);
+
+        logger.info("Updated trigger state for timer area {}", area.getId());
+    }
+
+    @Transactional
     public void updateCheckedTime(Area area) {
         AreaTriggerState state = getOrCreateState(area);
         state.setLastCheckedAt(Instant.now());
