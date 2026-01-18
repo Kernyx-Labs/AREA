@@ -54,9 +54,24 @@ services:
     environment:
       # VITE_API_URL: "http://server:8080"
       VITE_API_URL: "http://localhost:8080"
+    volumes:
+      - apk-share:/usr/share/nginx/html/shared
+    networks:
+      - area-net
+
+  mobile:
+    build:
+      context: ./mobile
+      dockerfile: Dockerfile
+    container_name: area-mobile
+    volumes:
+      - apk-share:/shared
     networks:
       - area-net
 
 networks:
   area-net:
     driver: bridge
+
+volumes:
+  apk-share:

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'blocs/auth/auth.dart';
 import 'constants/palette.dart';
-import 'constants/shadows.dart';
-import 'models/models.dart';
+import 'screens/auth_wrapper.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/pipeline_editor_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/services_screen.dart';
+import 'screens/splash_screen.dart';
 
 class AreaApp extends StatelessWidget {
   const AreaApp({super.key});
@@ -21,7 +23,7 @@ class AreaApp extends StatelessWidget {
         brightness: Brightness.light,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        iconTheme: MaterialStateProperty.all(
+        iconTheme: WidgetStateProperty.all(
           const IconThemeData(color: AppPalette.accent),
         ),
       ),
@@ -34,7 +36,20 @@ class AreaApp extends StatelessWidget {
     return MaterialApp(
       title: 'AREA Mobile',
       theme: theme,
-      home: const HomeShell(),
+      home: BlocBuilder<AuthBloc, AuthState>(
+        builder: (context, state) {
+          switch (state.status) {
+            case AuthStatus.initial:
+            case AuthStatus.loading:
+              return const SplashScreen();
+            case AuthStatus.authenticated:
+              return const HomeShell();
+            case AuthStatus.unauthenticated:
+            case AuthStatus.error:
+              return const AuthWrapper();
+          }
+        },
+      ),
     );
   }
 }
@@ -66,8 +81,8 @@ class _HomeShellState extends State<HomeShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        backgroundColor: AppPalette.dark,
-        indicatorColor: AppPalette.accent.withOpacity(.2),
+        backgroundColor: AppPalette.surface,
+        indicatorColor: AppPalette.accent.withOpacity(0.2),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),

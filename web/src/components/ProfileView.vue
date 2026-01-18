@@ -97,6 +97,11 @@
             <span>Edit Profile</span>
           </button>
 
+          <button class="action-btn" @click="handleDownloadApk">
+            <DownloadIcon size="20" />
+            <span>Download APK</span>
+          </button>
+
           <button class="action-btn danger" @click="handleDeleteAccount">
             <TrashIcon size="20" />
             <span>Delete Account</span>
@@ -120,7 +125,8 @@ import {
   EditIcon,
   TrashIcon,
   AlertCircleIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  DownloadIcon
 } from 'lucide-vue-next';
 import { useAuthStore } from '../stores/authStore.js';
 import { useModal } from '../composables/useModal.js';
@@ -186,6 +192,15 @@ async function handleUpdateProfile() {
     title: 'Coming Soon',
     variant: 'info'
   });
+}
+
+function handleDownloadApk() {
+  const link = document.createElement('a');
+  link.href = '/shared/client.apk';
+  link.download = 'client.apk';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
 async function handleDeleteAccount() {

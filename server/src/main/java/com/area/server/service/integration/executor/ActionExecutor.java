@@ -1,6 +1,6 @@
 package com.area.server.service.integration.executor;
 
-import com.area.server.model.Area;
+import com.area.server.model.AutomationEntity;
 import reactor.core.publisher.Mono;
 
 /**
@@ -22,17 +22,17 @@ public interface ActionExecutor {
      * Check if the action conditions are met for the given AREA.
      * Returns true if the action should trigger the workflow.
      *
-     * @param area The AREA configuration containing action parameters
+     * @param entity The entity configuration containing action parameters
      * @return Mono<Boolean> true if action triggered, false otherwise
      */
-    Mono<Boolean> isTriggered(Area area);
+    Mono<Boolean> isTriggered(AutomationEntity entity);
 
     /**
      * Get context data from the trigger (e.g., new email details, message content)
      * This data can be used by reactions to customize their behavior.
      *
-     * @param area The AREA configuration
+     * @param entity The entity configuration
      * @return Mono of trigger context data
      */
-    Mono<TriggerContext> getTriggerContext(Area area);
+    Mono<TriggerContext> getTriggerContext(AutomationEntity entity);
 }

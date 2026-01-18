@@ -2,6 +2,7 @@ package com.area.server.controller;
 
 import com.area.server.controller.dto.AreaResponse;
 import com.area.server.controller.dto.CreateAreaRequest;
+import com.area.server.controller.dto.CreateTimerAreaRequest;
 import com.area.server.controller.dto.ExecutionLogResponse;
 import com.area.server.controller.dto.UpdateAreaStatusRequest;
 import com.area.server.dto.response.ApiResponse;
@@ -11,6 +12,7 @@ import com.area.server.model.AreaExecutionLog;
 import com.area.server.model.AreaTriggerState;
 import com.area.server.model.DiscordReactionConfig;
 import com.area.server.model.GmailActionConfig;
+import com.area.server.model.TimerActionConfig;
 import com.area.server.service.AreaService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -70,6 +72,41 @@ public class AreaController {
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.success("AREA created successfully", response));
+    }
+
+    /**
+     * Create a new Timer AREA
+     * Uses GlobalExceptionHandler for error handling - no try-catch needed
+     */
+    @PostMapping("/timer")
+    public ResponseEntity<ApiResponse<AreaResponse>> createTimerArea(@Valid @RequestBody CreateTimerAreaRequest request) {
+        logger.info("Creating new Timer AREA: timerConnection={}, reactionConnection={}",
+                   request.getTimerConnectionId(), request.getReactionConnectionId());
+
+        TimerActionConfig timerConfig = new TimerActionConfig();
+        timerConfig.setTimerType(request.getTimerType());
+        timerConfig.setIntervalMinutes(request.getIntervalMinutes());
+        timerConfig.setDaysCount(request.getDaysCount());
+        timerConfig.setTargetDay(request.getTargetDay());
+
+        DiscordReactionConfig discordConfig = new DiscordReactionConfig();
+        discordConfig.setWebhookUrl(request.getDiscordWebhookUrl());
+        discordConfig.setChannelName(request.getDiscordChannelName());
+        discordConfig.setMessageTemplate(request.getDiscordMessageTemplate());
+
+        Area area = areaService.createTimerArea(
+            request.getTimerConnectionId(),
+            request.getReactionConnectionId(),
+            timerConfig,
+            discordConfig,
+            request.getActionType(),
+            request.getReactionType()
+        );
+
+        AreaResponse response = mapToAreaResponse(area);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success("Timer AREA created successfully", response));
     }
 
     /**
@@ -206,7 +243,9 @@ public class AreaController {
     private AreaResponse mapToAreaResponse(Area area) {
         AreaResponse response = new AreaResponse();
         response.setId(area.getId());
-        response.setActionConnectionId(area.getActionConnection().getId());
+
+        // Null-safe access for action connection (Timer doesn't have one)
+        response.setActionConnectionId(area.getActionConnection() != null ? area.getActionConnection().getId() : null);
         response.setReactionConnectionId(area.getReactionConnection().getId());
         response.setActive(area.isActive());
 
@@ -218,6 +257,17 @@ public class AreaController {
                 area.getGmailConfig().getFromAddress()
             );
             response.setGmailConfig(gmailDto);
+        }
+
+        // Map Timer config
+        if (area.getTimerConfig() != null) {
+            AreaResponse.TimerConfigDto timerDto = new AreaResponse.TimerConfigDto(
+                area.getTimerConfig().getTimerType(),
+                area.getTimerConfig().getIntervalMinutes(),
+                area.getTimerConfig().getDaysCount(),
+                area.getTimerConfig().getTargetDay()
+            );
+            response.setTimerConfig(timerDto);
         }
 
         // Map Discord config

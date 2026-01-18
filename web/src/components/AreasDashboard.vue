@@ -93,13 +93,6 @@
             <PlayIcon size="16" /> Test
           </button>
           <button
-            class="btn-stats"
-            @click.stop="viewStats(area.id)"
-            title="View statistics"
-          >
-            <ChartBarIcon size="16" /> Stats
-          </button>
-          <button
             class="btn-toggle"
             @click.stop="toggleArea(area)"
             :class="{ active: area.active }"

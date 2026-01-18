@@ -12,6 +12,9 @@ class PipelineNode {
     required this.title,
     required this.description,
     required this.position,
+    this.actionType,
+    this.config = const {},
+    this.connectionId,
   });
 
   final int id;
@@ -20,8 +23,16 @@ class PipelineNode {
   final String title;
   final String description;
   final Offset position;
+  final String? actionType;
+  final Map<String, dynamic> config;
+  final int? connectionId;
 
-  PipelineNode copyWith({Offset? position}) {
+  PipelineNode copyWith({
+    Offset? position,
+    String? actionType,
+    Map<String, dynamic>? config,
+    int? connectionId,
+  }) {
     return PipelineNode(
       id: id,
       type: type,
@@ -29,6 +40,9 @@ class PipelineNode {
       title: title,
       description: description,
       position: position ?? this.position,
+      actionType: actionType ?? this.actionType,
+      config: config ?? this.config,
+      connectionId: connectionId ?? this.connectionId,
     );
   }
 }
@@ -58,8 +72,6 @@ extension FirstOrNull<T> on Iterable<T> {
 
 const actionTemplates = [
   NodeTemplate(serviceId: 'gmail', name: 'New email received', description: 'Triggers when a new email arrives'),
-  NodeTemplate(serviceId: 'gmail', name: 'Email with attachment', description: 'Triggers on emails with files'),
-  NodeTemplate(serviceId: 'timer', name: 'Schedule', description: 'Triggers at specific times'),
   NodeTemplate(serviceId: 'timer', name: 'Interval', description: 'Triggers every X minutes'),
   NodeTemplate(serviceId: 'github', name: 'New Issue', description: 'Triggers on new issues'),
   NodeTemplate(serviceId: 'github', name: 'Pull Request', description: 'Triggers on new PRs'),
@@ -68,7 +80,5 @@ const actionTemplates = [
 const reactionTemplates = [
   NodeTemplate(serviceId: 'discord', name: 'Send Message', description: 'Posts a message to a channel'),
   NodeTemplate(serviceId: 'gmail', name: 'Send Email', description: 'Sends an email'),
-  NodeTemplate(serviceId: 'dropbox', name: 'Upload File', description: 'Uploads a file to Dropbox'),
-  NodeTemplate(serviceId: 'outlook', name: 'Create Event', description: 'Creates a calendar event'),
   NodeTemplate(serviceId: 'github', name: 'Create Issue', description: 'Creates a new issue'),
 ];

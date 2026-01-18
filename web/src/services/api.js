@@ -129,6 +129,20 @@ export const api = {
     return data; // { authUrl: "...", state: "..." }
   },
 
+  // Get GitHub OAuth URL
+  async getGitHubAuthUrl() {
+    return await authenticatedFetch(`${API_URL}/api/services/github/auth-url`);
+  },
+
+  // Get GitHub OAuth status
+  async getGitHubStatus() {
+    const response = await fetch(`${API_URL}/api/services/github/status`);
+    if (!response.ok) throw new Error('Failed to get GitHub status');
+    const result = await response.json();
+    const data = unwrapApiResponse(result);
+    return data;
+  },
+
   // Disconnect service
   async disconnectService(connectionId) {
     await authenticatedFetch(`${API_URL}/api/service-connections/${connectionId}`, {
@@ -175,6 +189,14 @@ export const api = {
   // Create a new area (Gmail → Discord)
   async createArea(areaData) {
     return await authenticatedFetch(`${API_URL}/api/areas`, {
+      method: 'POST',
+      body: JSON.stringify(areaData),
+    });
+  },
+
+  // Create a new timer area (Timer → Discord)
+  async createTimerArea(areaData) {
+    return await authenticatedFetch(`${API_URL}/api/areas/timer`, {
       method: 'POST',
       body: JSON.stringify(areaData),
     });

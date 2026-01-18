@@ -195,6 +195,13 @@ async function connectService(serviceName) {
       currentOAuthService.value = 'Gmail';
       showOAuthModal.value = true;
 
+    } else if (serviceName === 'github') {
+      // GitHub requires OAuth flow
+      const authData = await api.getGitHubAuthUrl();
+      currentAuthUrl.value = authData.authUrl;
+      currentOAuthService.value = 'GitHub';
+      showOAuthModal.value = true;
+
     } else if (serviceName === 'discord') {
       // Discord - show modal for bot token and channel ID
       showDiscordModal.value = true;
