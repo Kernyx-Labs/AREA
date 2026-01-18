@@ -181,6 +181,7 @@ function buildWorkflowData() {
     trigger: {
       service: trigger.value.serviceName,
       type: trigger.value.eventId,
+      event: trigger.value.eventId, // Add this field as it is used in saveAsTimerArea
       config: trigger.value.config || {}
     },
     actions: actions.value.map(action => ({
@@ -266,8 +267,9 @@ async function saveAsTimerArea(workflowData) {
   const triggerConfig = workflowData.trigger.config || {}
   const actionConfig = workflowData.action?.config || {}
 
-  // Determine timer type from event name
-  const timerType = workflowData.trigger.event.replace('timer.', '')
+  // Determine timer type from event name or type
+  const eventName = workflowData.trigger.event || workflowData.trigger.type || ''
+  const timerType = eventName.replace('timer.', '')
 
   const areaData = {
     timerConnectionId: null, // Timer doesn't require connection (time-based)
@@ -280,7 +282,7 @@ async function saveAsTimerArea(workflowData) {
     discordMessageTemplate: actionConfig.message || actionConfig.messageTemplate ||
       '⏰ Timer Alert!\nCurrent Date: {{date}}\nCurrent Time: {{time}}\nDay: {{dayOfWeek}}',
     actionType: workflowData.trigger.event,
-    reactionType: 'discord.send_webhook'
+    reactionType: 'discord.send_message'
   }
 
   await api.createTimerArea(areaData)

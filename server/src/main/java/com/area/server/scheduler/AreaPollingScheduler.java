@@ -39,10 +39,10 @@ public class AreaPollingScheduler {
     private final ReactionExecutorRegistry reactionExecutorRegistry;
 
     public AreaPollingScheduler(AreaRepository areaRepository,
-                                TriggerStateService stateService,
-                                AreaExecutionLogRepository logRepository,
-                                ActionExecutorRegistry actionExecutorRegistry,
-                                ReactionExecutorRegistry reactionExecutorRegistry) {
+            TriggerStateService stateService,
+            AreaExecutionLogRepository logRepository,
+            ActionExecutorRegistry actionExecutorRegistry,
+            ReactionExecutorRegistry reactionExecutorRegistry) {
         this.areaRepository = areaRepository;
         this.stateService = stateService;
         this.logRepository = logRepository;
@@ -50,13 +50,13 @@ public class AreaPollingScheduler {
         this.reactionExecutorRegistry = reactionExecutorRegistry;
     }
 
-    @Scheduled(fixedDelayString = "${area.polling.interval:60000}",
-               initialDelayString = "${area.polling.initial-delay:30000}")
+    @Scheduled(fixedDelayString = "${area.polling.interval:60000}", initialDelayString = "${area.polling.initial-delay:30000}")
     public void pollActiveAreas() {
         logger.info("=== Starting AREA polling cycle ===");
         long startTime = System.currentTimeMillis();
 
-        List<Area> activeAreas = areaRepository.findByActiveTrue();
+        // ONLY poll non-timer areas (timers are handled by TimerPollingScheduler)
+        List<Area> activeAreas = areaRepository.findActiveNonTimerAreas();
         logger.info("Found {} active area(s) to process", activeAreas.size());
 
         if (activeAreas.isEmpty()) {
@@ -69,27 +69,26 @@ public class AreaPollingScheduler {
         AtomicInteger skippedCount = new AtomicInteger(0);
 
         Flux.fromIterable(activeAreas)
-            .flatMap(area -> processArea(area)
-                .doOnSuccess(result -> {
-                    switch (result.status) {
-                        case SUCCESS -> successCount.incrementAndGet();
-                        case FAILURE -> failureCount.incrementAndGet();
-                        case SKIPPED -> skippedCount.incrementAndGet();
-                    }
-                })
-                .onErrorResume(error -> {
-                    logger.error("Unexpected error processing area {}", area.getId(), error);
-                    failureCount.incrementAndGet();
-                    return Mono.empty();
-                }),
-                5
-            )
-            .collectList()
-            .block(Duration.ofMinutes(2));
+                .flatMap(area -> processArea(area)
+                        .doOnSuccess(result -> {
+                            switch (result.status) {
+                                case SUCCESS -> successCount.incrementAndGet();
+                                case FAILURE -> failureCount.incrementAndGet();
+                                case SKIPPED -> skippedCount.incrementAndGet();
+                            }
+                        })
+                        .onErrorResume(error -> {
+                            logger.error("Unexpected error processing area {}", area.getId(), error);
+                            failureCount.incrementAndGet();
+                            return Mono.empty();
+                        }),
+                        5)
+                .collectList()
+                .block(Duration.ofMinutes(2));
 
         long duration = System.currentTimeMillis() - startTime;
         logger.info("=== Polling cycle completed in {}ms - Success: {}, Failed: {}, Skipped: {} ===",
-                    duration, successCount.get(), failureCount.get(), skippedCount.get());
+                duration, successCount.get(), failureCount.get(), skippedCount.get());
     }
 
     private Mono<ProcessingResult> processArea(Area area) {
@@ -99,8 +98,8 @@ public class AreaPollingScheduler {
         if (stateService.shouldSkipDueToFailures(area)) {
             logger.warn("Skipping area {} due to circuit breaker (too many consecutive failures)", area.getId());
             logExecution(area, AreaExecutionLog.ExecutionStatus.SKIPPED, null,
-                        "Circuit breaker open - too many consecutive failures",
-                        System.currentTimeMillis() - startTime);
+                    "Circuit breaker open - too many consecutive failures",
+                    System.currentTimeMillis() - startTime);
             return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
         }
 
@@ -118,58 +117,53 @@ public class AreaPollingScheduler {
             logger.error("Failed to get executors for area {}: {}", area.getId(), e.getMessage());
             stateService.recordFailure(area, e.getMessage());
             logExecution(area, AreaExecutionLog.ExecutionStatus.FAILURE, null, e.getMessage(),
-                        System.currentTimeMillis() - startTime);
+                    System.currentTimeMillis() - startTime);
             return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.FAILURE));
         }
 
         // Use the executor framework
         return actionExecutor.getTriggerContext(area)
-            .flatMap(context -> {
-                // For Gmail-specific logic
-                if (actionType.startsWith("gmail.")) {
-                    return processGmailAction(area, context, reactionExecutor, startTime);
-                }
+                .flatMap(context -> {
+                    // For Gmail-specific logic
+                    if (actionType.startsWith("gmail.")) {
+                        return processGmailAction(area, context, reactionExecutor, startTime);
+                    }
 
-                // For Timer-specific logic
-                if (actionType.startsWith("timer.")) {
-                    return processTimerAction(area, context, reactionExecutor, startTime);
-                }
-
-                // Generic action processing - check if explicitly not triggered
-                Boolean triggered = context.getBoolean("triggered");
-                if (triggered != null && !triggered) {
-                    stateService.updateCheckedTime(area);
-                    logger.debug("Action not triggered for area {}", area.getId());
-                    return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
-                }
-
-                logger.info("Area {} triggered with action type: {}", area.getId(), actionType);
-
-                // Execute the reaction
-                return reactionExecutor.execute(area, context)
-                    .then(Mono.fromRunnable(() -> {
+                    // Generic action processing - check if explicitly not triggered
+                    Boolean triggered = context.getBoolean("triggered");
+                    if (triggered != null && !triggered) {
                         stateService.updateCheckedTime(area);
+                        logger.debug("Action not triggered for area {}", area.getId());
+                        return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
+                    }
 
-                        long execTime = System.currentTimeMillis() - startTime;
-                        String logMessage = String.format("Executed action: %s", actionType);
-                        logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
-                                   null, logMessage, execTime);
+                    logger.info("Area {} triggered with action type: {}", area.getId(), actionType);
 
-                        logger.info("Successfully processed area {} in {}ms", area.getId(), execTime);
-                    }))
-                    .thenReturn(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SUCCESS));
-            })
-            .onErrorResume(error -> {
-                String errorMsg = error.getMessage();
-                logger.error("Failed to process area {}: {}", area.getId(), errorMsg, error);
+                    // Execute the reaction
+                    return reactionExecutor.execute(area, context)
+                            .then(Mono.fromRunnable(() -> {
+                                stateService.updateCheckedTime(area);
 
-                stateService.recordFailure(area, errorMsg);
+                                long execTime = System.currentTimeMillis() - startTime;
+                                String logMessage = String.format("Executed action: %s", actionType);
+                                logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
+                                        null, logMessage, execTime);
 
-                long execTime = System.currentTimeMillis() - startTime;
-                logExecution(area, AreaExecutionLog.ExecutionStatus.FAILURE, null, errorMsg, execTime);
+                                logger.info("Successfully processed area {} in {}ms", area.getId(), execTime);
+                            }))
+                            .thenReturn(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SUCCESS));
+                })
+                .onErrorResume(error -> {
+                    String errorMsg = error.getMessage();
+                    logger.error("Failed to process area {}: {}", area.getId(), errorMsg, error);
 
-                return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.FAILURE));
-            });
+                    stateService.recordFailure(area, errorMsg);
+
+                    long execTime = System.currentTimeMillis() - startTime;
+                    logExecution(area, AreaExecutionLog.ExecutionStatus.FAILURE, null, errorMsg, execTime);
+
+                    return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.FAILURE));
+                });
     }
 
     private String determineActionType(Area area) {
@@ -183,21 +177,13 @@ public class AreaPollingScheduler {
             switch (area.getActionConnection().getType()) {
                 case GMAIL:
                     return "gmail.email_received";
-                case TIMER:
-                    return determineTimerActionType(area);
                 default:
-                    throw new IllegalStateException("Unknown action connection type: " + area.getActionConnection().getType());
+                    throw new IllegalStateException(
+                            "Unknown action connection type: " + area.getActionConnection().getType());
             }
         }
 
         throw new IllegalStateException("Area has no action type or action connection");
-    }
-
-    private String determineTimerActionType(Area area) {
-        if (area.getTimerConfig() != null && area.getTimerConfig().getTimerType() != null) {
-            return "timer." + area.getTimerConfig().getTimerType();
-        }
-        return "timer.recurring";
     }
 
     private String determineReactionType(Area area) {
@@ -212,7 +198,8 @@ public class AreaPollingScheduler {
                 case DISCORD:
                     return "discord.send_webhook";
                 default:
-                    throw new IllegalStateException("Unknown reaction connection type: " + area.getReactionConnection().getType());
+                    throw new IllegalStateException(
+                            "Unknown reaction connection type: " + area.getReactionConnection().getType());
             }
         }
 
@@ -220,10 +207,10 @@ public class AreaPollingScheduler {
     }
 
     private Mono<ProcessingResult> processGmailAction(Area area, TriggerContext context,
-                                                       ReactionExecutor reactionExecutor, long startTime) {
+            ReactionExecutor reactionExecutor, long startTime) {
         // Check if there are new messages
         if (!context.has("newMessages") || context.getInteger("messageCount") == null
-            || context.getInteger("messageCount") == 0) {
+                || context.getInteger("messageCount") == 0) {
             stateService.updateCheckedTime(area);
             logger.debug("No new messages for area {}", area.getId());
             return Mono.just(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SKIPPED));
@@ -241,47 +228,26 @@ public class AreaPollingScheduler {
         GmailMessage latestMessage = newMessages.get(0);
         Integer messageCount = context.getInteger("messageCount");
         logger.info("Area {} triggered with {} new message(s). Latest: '{}'",
-                   area.getId(), messageCount, latestMessage.getSubject());
+                area.getId(), messageCount, latestMessage.getSubject());
 
         // Execute the reaction
         return reactionExecutor.execute(area, context)
-            .then(Mono.fromRunnable(() -> {
-                stateService.updateStateAfterSuccess(area, latestMessage, messageCount);
+                .then(Mono.fromRunnable(() -> {
+                    stateService.updateStateAfterSuccess(area, latestMessage, messageCount);
 
-                long execTime = System.currentTimeMillis() - startTime;
-                String logMessage = String.format("Sent notification for: %s (from: %s)",
-                                                 latestMessage.getSubject(), latestMessage.getFrom());
-                logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
-                           messageCount, logMessage, execTime);
+                    long execTime = System.currentTimeMillis() - startTime;
+                    String logMessage = String.format("Sent notification for: %s (from: %s)",
+                            latestMessage.getSubject(), latestMessage.getFrom());
+                    logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
+                            messageCount, logMessage, execTime);
 
-                logger.info("Successfully processed area {} in {}ms", area.getId(), execTime);
-            }))
-            .thenReturn(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SUCCESS));
-    }
-
-    private Mono<ProcessingResult> processTimerAction(Area area, TriggerContext context,
-                                                       ReactionExecutor reactionExecutor, long startTime) {
-        String timerType = context.getString("timerType");
-        logger.info("Area {} triggered with timer type: {}", area.getId(), timerType);
-
-        // Execute the reaction with timer context
-        return reactionExecutor.execute(area, context)
-            .then(Mono.fromRunnable(() -> {
-                stateService.updateStateAfterTimerSuccess(area);
-
-                long execTime = System.currentTimeMillis() - startTime;
-                String logMessage = String.format("Timer triggered: %s at %s",
-                                                 timerType, context.getString("time"));
-                logExecution(area, AreaExecutionLog.ExecutionStatus.SUCCESS,
-                           null, logMessage, execTime);
-
-                logger.info("Successfully processed timer area {} in {}ms", area.getId(), execTime);
-            }))
-            .thenReturn(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SUCCESS));
+                    logger.info("Successfully processed area {} in {}ms", area.getId(), execTime);
+                }))
+                .thenReturn(new ProcessingResult(AreaExecutionLog.ExecutionStatus.SUCCESS));
     }
 
     private void logExecution(Area area, AreaExecutionLog.ExecutionStatus status,
-                             Integer count, String message, long executionTimeMs) {
+            Integer count, String message, long executionTimeMs) {
         try {
             AreaExecutionLog log = new AreaExecutionLog();
             log.setArea(area);

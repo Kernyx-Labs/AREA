@@ -3,6 +3,7 @@ package com.area.server.service.integration.executor;
 import com.area.server.model.Area;
 import com.area.server.model.AreaTriggerState;
 import com.area.server.model.TimerActionConfig;
+import com.area.server.model.AutomationEntity;
 import com.area.server.service.TriggerStateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +20,8 @@ import java.util.Locale;
 
 /**
  * Executor for Timer actions.
- * Provides time-based triggers including current date, current time, and days until calculations.
+ * Provides time-based triggers including current date, current time, and days
+ * until calculations.
  */
 @Component
 public class TimerActionExecutor implements ActionExecutor {
@@ -27,7 +29,7 @@ public class TimerActionExecutor implements ActionExecutor {
     private static final Logger logger = LoggerFactory.getLogger(TimerActionExecutor.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd/MM");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm");
-    
+
     private final TriggerStateService stateService;
 
     public TimerActionExecutor(TriggerStateService stateService) {
@@ -40,7 +42,11 @@ public class TimerActionExecutor implements ActionExecutor {
     }
 
     @Override
-    public Mono<Boolean> isTriggered(Area area) {
+    public Mono<Boolean> isTriggered(AutomationEntity entity) {
+        if (!(entity instanceof Area)) {
+            return Mono.just(false);
+        }
+        Area area = (Area) entity;
         TimerActionConfig config = area.getTimerConfig();
         if (config == null) {
             logger.warn("Timer config is null for area {}", area.getId());
@@ -50,33 +56,37 @@ public class TimerActionExecutor implements ActionExecutor {
         AreaTriggerState state = stateService.getOrCreateState(area);
         Instant lastChecked = state.getLastCheckedAt();
         Instant now = Instant.now();
-        
+
         // Default interval is 60 minutes if not specified
         int intervalMinutes = config.getIntervalMinutes() != null ? config.getIntervalMinutes() : 60;
-        
+
         // For days_until type, default to 24 hours (1440 minutes) if not specified
         String timerType = config.getTimerType();
         if ("days_until".equals(timerType) && config.getIntervalMinutes() == null) {
             intervalMinutes = 1440; // 24 hours
         }
-        
+
         // Check if enough time has passed since last check
         if (lastChecked != null) {
             long minutesSinceLastCheck = ChronoUnit.MINUTES.between(lastChecked, now);
             if (minutesSinceLastCheck < intervalMinutes) {
                 logger.debug("Timer for area {} not triggered - only {} minutes since last check (interval: {})",
-                    area.getId(), minutesSinceLastCheck, intervalMinutes);
+                        area.getId(), minutesSinceLastCheck, intervalMinutes);
                 return Mono.just(false);
             }
         }
-        
-        logger.info("Timer triggered for area {} (type: {}, interval: {} minutes)", 
-            area.getId(), timerType, intervalMinutes);
+
+        logger.info("Timer triggered for area {} (type: {}, interval: {} minutes)",
+                area.getId(), timerType, intervalMinutes);
         return Mono.just(true);
     }
 
     @Override
-    public Mono<TriggerContext> getTriggerContext(Area area) {
+    public Mono<TriggerContext> getTriggerContext(AutomationEntity entity) {
+        if (!(entity instanceof Area)) {
+            return Mono.just(new TriggerContext());
+        }
+        Area area = (Area) entity;
         TimerActionConfig config = area.getTimerConfig();
         if (config == null) {
             return Mono.just(new TriggerContext());
@@ -90,7 +100,7 @@ public class TimerActionExecutor implements ActionExecutor {
         // Add current date and time to context
         String currentDate = today.format(DATE_FORMATTER);
         String currentTimeStr = currentTime.format(TIME_FORMATTER);
-        
+
         context.put("date", currentDate);
         context.put("time", currentTimeStr);
         context.put("timestamp", now.toEpochMilli());
@@ -110,13 +120,13 @@ public class TimerActionExecutor implements ActionExecutor {
             LocalDate futureDate = today.plusDays(daysCount);
             String futureDayName = futureDate.getDayOfWeek().getDisplayName(TextStyle.FULL, Locale.ENGLISH);
             String futureFormattedDate = futureDate.format(DATE_FORMATTER);
-            
-            String message = String.format("In %d day%s, it will be %s (%s)", 
-                daysCount, 
-                daysCount == 1 ? "" : "s",
-                futureDayName,
-                futureFormattedDate);
-            
+
+            String message = String.format("In %d day%s, it will be %s (%s)",
+                    daysCount,
+                    daysCount == 1 ? "" : "s",
+                    futureDayName,
+                    futureFormattedDate);
+
             context.put("daysUntilMessage", message);
             context.put("daysCount", daysCount);
             context.put("futureDay", futureDayName);
@@ -128,8 +138,8 @@ public class TimerActionExecutor implements ActionExecutor {
             context.put("intervalMinutes", config.getIntervalMinutes());
         }
 
-        logger.debug("Timer context for area {}: date={}, time={}, type={}", 
-            area.getId(), currentDate, currentTimeStr, timerType);
+        logger.debug("Timer context for area {}: date={}, time={}, type={}",
+                area.getId(), currentDate, currentTimeStr, timerType);
 
         return Mono.just(context);
     }
@@ -141,4 +151,3 @@ public class TimerActionExecutor implements ActionExecutor {
         return actionType != null && actionType.startsWith("timer.");
     }
 }
-

@@ -16,7 +16,7 @@ public class Area implements AutomationEntity {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @ManyToOne(optional = true)  // Optional for Timer service
+    @ManyToOne(optional = true) // Optional for Timer service
     private ServiceConnection actionConnection;
 
     @ManyToOne(optional = false)
@@ -33,6 +33,7 @@ public class Area implements AutomationEntity {
 
     @Embedded
     private GitHubReactionConfig githubReactionConfig;
+    @Embedded
     private TimerActionConfig timerConfig;
 
     @Column(name = "action_type")
@@ -45,6 +46,10 @@ public class Area implements AutomationEntity {
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public User getUser() {
@@ -103,6 +108,8 @@ public class Area implements AutomationEntity {
 
     public void setGithubReactionConfig(GitHubReactionConfig githubReactionConfig) {
         this.githubReactionConfig = githubReactionConfig;
+    }
+
     public TimerActionConfig getTimerConfig() {
         return timerConfig;
     }
